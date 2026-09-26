@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: shipsafe
+      POSTGRES_PASSWORD: shipsafepassword
+      POSTGRES_DB: shipsafe
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  api:
+    build: .
+    restart: always
+    command: uvicorn api.app:app --host 0.0.0.0 --port 8000
+    environment:
+      - DATABASE_URL=postgresql://shipsafe:shipsafepassword@db:5432/shipsafe
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-secret123}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - XAI_MODEL=${XAI_MODEL:-grok-4.7}
+      - APP_ENV=production
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  worker:
+    build: .
+    restart: always
+    command: python -m worker.worker
+    environment:
+      - DATABASE_URL=postgresql://shipsafe:shipsafepassword@db:5432/shipsafe
+      - XAI_API_KEY=${XAI_API_KEY}
+      - XAI_MODEL=${XAI_MODEL:-grok-4.7}
+      - APP_ENV=production
+    depends_on:
+      - db
+      - api
+
+  streamlit:
+    build: .
+    restart: always
+    command: streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0
+    environment:
+      - DATABASE_URL=postgresql://shipsafe:shipsafepassword@db:5432/shipsafe
+      - API_BASE_URL=http://api:8000
+      - APP_ENV=production
+    ports:
+      - "8501:8501"
+    depends_on:
+      - db
+      - api
+
+volumes:
+  postgres_data:

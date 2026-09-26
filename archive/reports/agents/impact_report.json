@@ -1,0 +1,381 @@
+{
+  "report_type": "agent_report",
+  "generated_at": "2026-09-26T06:45:00.000000+00:00",
+  "status": "RELEASE_BLOCKED",
+  "source_agent": "impact",
+  "summary": {
+    "total_findings": 7,
+    "critical_count": 0,
+    "high_count": 6,
+    "medium_count": 1,
+    "low_count": 0,
+    "info_count": 0,
+    "requirements_compliant": 0,
+    "requirements_non_compliant": 5,
+    "requirements_unverifiable": 0
+  },
+  "findings": [
+    {
+      "finding_id": "IMPACT-001",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "title": "notification_service.py: cancelled-appointment guard removed — R001 violated",
+      "description": "The send_reminder() function previously raised a ValueError when an appointment had status 'cancelled', preventing any notification from being persisted for cancelled appointments. In the current (bad) state the guard only blocks reminders for 'completed' appointments (line 25). The 'cancelled' branch is entirely absent, meaning cancelled appointments will now successfully receive reminder notifications and notification records will be inserted into the database. This directly violates R001.",
+      "affected_files": [
+        "demo_target/services/notification_service.py"
+      ],
+      "evidence": [
+        {
+          "evidence_type": "GIT_CHANGE",
+          "description": "File demo_target/services/notification_service.py has Git status 'M' — it was modified in this release.",
+          "file_path": "demo_target/services/notification_service.py",
+          "line_start": null,
+          "symbol": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "Line 25: guard condition checks only for 'completed' status. There is no corresponding check for status == 'cancelled'. A cancelled appointment will pass through to the INSERT INTO notifications statement at line 32.",
+          "file_path": "demo_target/services/notification_service.py",
+          "line_start": 25,
+          "symbol": "send_reminder",
+          "is_concrete": true
+        }
+      ],
+      "requirement_id": "R001",
+      "recommended_action": "Restore the cancelled-appointment guard in send_reminder(): add `if row['status'] == 'cancelled': raise ValueError(...)` before the notification INSERT.",
+      "source_agent": "impact"
+    },
+    {
+      "finding_id": "IMPACT-002",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "title": "models.py: appointment_row_to_dict missing eta_minutes field — R002 violated",
+      "description": "The appointment_row_to_dict() function (lines 27-36) no longer includes the 'eta_minutes' key in its return dict. R002 requires that POST /appointments, GET /appointments/<id>, and POST /appointments/<id>/cancel responses all include 'eta_minutes'. Because every route that returns appointment data calls appointment_row_to_dict (via routes/appointments.py and services/appointment_service.py), the 'eta_minutes' field will be absent from all appointment API responses.",
+      "affected_files": [
+        "demo_target/models.py",
+        "demo_target/routes/appointments.py",
+        "demo_target/services/appointment_service.py"
+      ],
+      "evidence": [
+        {
+          "evidence_type": "GIT_CHANGE",
+          "description": "File demo_target/models.py has Git status 'M' — it was modified in this release.",
+          "file_path": "demo_target/models.py",
+          "line_start": null,
+          "symbol": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "Lines 27-36: appointment_row_to_dict returns keys appointment_id, patient_id, doctor_id, appointment_date, status, priority, created_at. The eta_minutes key is not present.",
+          "file_path": "demo_target/models.py",
+          "line_start": 27,
+          "symbol": "appointment_row_to_dict",
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "routes/appointments.py line 46: GET /appointments/<id> calls appointment_row_to_dict(row) and returns the result — so eta_minutes will be absent from the response.",
+          "file_path": "demo_target/routes/appointments.py",
+          "line_start": 46,
+          "symbol": "get_appointment",
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "services/appointment_service.py line 55: create_appointment() calls appointment_row_to_dict(row) and returns the result used by POST /appointments — eta_minutes will be absent.",
+          "file_path": "demo_target/services/appointment_service.py",
+          "line_start": 55,
+          "symbol": "create_appointment",
+          "is_concrete": true
+        }
+      ],
+      "requirement_id": "R002",
+      "recommended_action": "Restore the 'eta_minutes': row['eta_minutes'] entry in appointment_row_to_dict() in demo_target/models.py.",
+      "source_agent": "impact"
+    },
+    {
+      "finding_id": "IMPACT-003",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "title": "models.py: VALID_PRIORITIES expanded with undocumented 'critical' value — R003 violated",
+      "description": "VALID_PRIORITIES in models.py (line 41) now contains {'normal', 'high', 'emergency', 'critical'}. R003 specifies that the priority field must accept only the values 'normal', 'high', and 'emergency'. The addition of 'critical' as an accepted application-level priority is not sanctioned by the requirement, and the db.py CHECK constraint (line 49) has been extended to match, further cementing the unauthorised value in the database schema.",
+      "affected_files": [
+        "demo_target/models.py",
+        "demo_target/db.py"
+      ],
+      "evidence": [
+        {
+          "evidence_type": "GIT_CHANGE",
+          "description": "File demo_target/models.py has Git status 'M' — modified in this release.",
+          "file_path": "demo_target/models.py",
+          "line_start": null,
+          "symbol": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "Line 41: VALID_PRIORITIES = {\"normal\", \"high\", \"emergency\", \"critical\"} — the value 'critical' is not in the approved set defined by R003.",
+          "file_path": "demo_target/models.py",
+          "line_start": 41,
+          "symbol": "VALID_PRIORITIES",
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "db.py line 49: CHECK constraint now reads CHECK (priority IN ('normal', 'high', 'emergency', 'critical')), adding 'critical' to the database-level constraint in lockstep with models.py.",
+          "file_path": "demo_target/db.py",
+          "line_start": 49,
+          "symbol": "SCHEMA",
+          "is_concrete": true
+        }
+      ],
+      "requirement_id": "R003",
+      "recommended_action": "Remove 'critical' from VALID_PRIORITIES in models.py and from the CHECK constraint in db.py. Revert to {'normal', 'high', 'emergency'} as required by R003.",
+      "source_agent": "impact"
+    },
+    {
+      "finding_id": "IMPACT-004",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "title": "db.py: SCHEMA CHECK constraint expanded with unauthorised 'critical' priority value — R003 violated",
+      "description": "The appointments table CHECK constraint on the priority column in db.py SCHEMA (line 49) now permits 'critical' in addition to the R003-mandated values. This schema change persists the unauthorised priority value at the database layer, meaning even if the application-level VALID_PRIORITIES were reverted, existing rows with 'critical' priority would remain valid according to the schema.",
+      "affected_files": [
+        "demo_target/db.py"
+      ],
+      "evidence": [
+        {
+          "evidence_type": "GIT_CHANGE",
+          "description": "File demo_target/db.py has Git status 'M' — modified in this release.",
+          "file_path": "demo_target/db.py",
+          "line_start": null,
+          "symbol": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "SCHEMA_CHANGE",
+          "description": "db.py line 49: CHECK (priority IN ('normal', 'high', 'emergency', 'critical')) — 'critical' was added to the CHECK constraint, deviating from the R003-specified values of normal, high, emergency.",
+          "file_path": "demo_target/db.py",
+          "line_start": 49,
+          "symbol": "SCHEMA",
+          "is_concrete": true
+        }
+      ],
+      "requirement_id": "R003",
+      "recommended_action": "Revert the CHECK constraint in db.py SCHEMA to CHECK (priority IN ('normal', 'high', 'emergency')) as required by R003.",
+      "source_agent": "impact"
+    },
+    {
+      "finding_id": "IMPACT-005",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "title": "routes/appointments.py: new /appointments/search endpoint uses unsafe SQL string concatenation — R004 violated",
+      "description": "A new GET /appointments/search route (lines 67-78) was added to routes/appointments.py. The route takes a user-supplied 'status' query parameter and concatenates it directly into a raw SQL string: `\"SELECT * FROM appointments WHERE status = '\" + status + \"'\"`. This is textbook SQL injection and directly violates R004, which requires parameterized queries for all user-supplied database input.",
+      "affected_files": [
+        "demo_target/routes/appointments.py"
+      ],
+      "evidence": [
+        {
+          "evidence_type": "GIT_CHANGE",
+          "description": "File demo_target/routes/appointments.py has Git status 'M' — modified in this release.",
+          "file_path": "demo_target/routes/appointments.py",
+          "line_start": null,
+          "symbol": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "Line 76: query = \"SELECT * FROM appointments WHERE status = '\" + status + \"'\" — user input from request.args is concatenated directly into SQL. The route's own docstring at line 71 explicitly labels this an R004 violation.",
+          "file_path": "demo_target/routes/appointments.py",
+          "line_start": 76,
+          "symbol": "search_appointments",
+          "is_concrete": true
+        }
+      ],
+      "requirement_id": "R004",
+      "recommended_action": "Replace string concatenation with a parameterized query: `db.execute(\"SELECT * FROM appointments WHERE status = ?\", (status,))`.",
+      "source_agent": "impact"
+    },
+    {
+      "finding_id": "IMPACT-006",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "title": "test_notifications.py: R001 regression tests covering cancelled-appointment guard removed — R005 violated",
+      "description": "The modified test_notifications.py (lines 1-47) contains only 4 tests covering the happy-path and missing-appointment scenarios. There are no tests verifying that a cancelled appointment cannot receive a reminder notification. R005 explicitly requires that tests verify a cancelled appointment does not trigger a reminder notification (covering R001). Those tests have been removed in this release, leaving the R001 regression coverage gap undetected.",
+      "affected_files": [
+        "demo_target/tests/test_notifications.py"
+      ],
+      "evidence": [
+        {
+          "evidence_type": "GIT_CHANGE",
+          "description": "File demo_target/tests/test_notifications.py has Git status 'M' — modified in this release.",
+          "file_path": "demo_target/tests/test_notifications.py",
+          "line_start": null,
+          "symbol": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "test_notifications.py has 4 test functions (lines 17, 27, 34, 40). None test the cancelled-appointment reminder rejection scenario required by R001/R005. No test name contains 'cancel' in the file.",
+          "file_path": "demo_target/tests/test_notifications.py",
+          "line_start": 1,
+          "symbol": null,
+          "is_concrete": true
+        }
+      ],
+      "requirement_id": "R005",
+      "recommended_action": "Restore a test that: (1) creates and cancels an appointment, (2) calls POST /appointments/<id>/reminder, (3) asserts HTTP 400 is returned and no notification is created.",
+      "source_agent": "impact"
+    },
+    {
+      "finding_id": "IMPACT-007",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "title": "test_appointments.py: R002/R003 regression tests for eta_minutes and priority removed — R005 violated",
+      "description": "The modified test_appointments.py (lines 1-114) no longer contains tests asserting that appointment API responses include the 'eta_minutes' field (R002) or that appointment priority values are persisted and retrievable via GET /appointments/<id> (R003). The remaining test at line 75 checks only that 'appointment_id' is present in the GET response — it does not check 'status' or 'eta_minutes'. R005 requires all these assertions to be present and passing.",
+      "affected_files": [
+        "demo_target/tests/test_appointments.py"
+      ],
+      "evidence": [
+        {
+          "evidence_type": "GIT_CHANGE",
+          "description": "File demo_target/tests/test_appointments.py has Git status 'M' — modified in this release.",
+          "file_path": "demo_target/tests/test_appointments.py",
+          "line_start": null,
+          "symbol": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "test_get_appointment_success (line 73) checks only data['appointment_id'] — it does not assert data['eta_minutes'] or data['status'] are present, violating R002/R005.",
+          "file_path": "demo_target/tests/test_appointments.py",
+          "line_start": 73,
+          "symbol": "test_get_appointment_success",
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "No test in test_appointments.py verifies that the priority field value submitted at creation is retrievable via GET /appointments/<id>, as required by R003/R005.",
+          "file_path": "demo_target/tests/test_appointments.py",
+          "line_start": 1,
+          "symbol": null,
+          "is_concrete": true
+        }
+      ],
+      "requirement_id": "R005",
+      "recommended_action": "Restore tests that: (1) assert 'eta_minutes' and 'status' appear in all appointment API responses (R002), and (2) verify that a priority submitted at creation matches the value returned by GET /appointments/<id> (R003).",
+      "source_agent": "impact"
+    },
+    {
+      "finding_id": "IMPACT-008",
+      "severity": "MEDIUM",
+      "finding_status": "CONFIRMED",
+      "title": "appointment_service.py imports VALID_PRIORITIES from models.py — now validates against expanded set including 'critical'",
+      "description": "demo_target/services/appointment_service.py (line 6) imports VALID_PRIORITIES directly from models.py. Because VALID_PRIORITIES now includes 'critical' (see IMPACT-003), create_appointment() will accept 'critical' as a valid priority and persist it to the database. Any appointment created with priority='critical' will pass validation but violate R003. This is a downstream impact of the VALID_PRIORITIES change in models.py — appointment_service.py itself is unchanged but its behavior is affected.",
+      "affected_files": [
+        "demo_target/services/appointment_service.py",
+        "demo_target/models.py"
+      ],
+      "evidence": [
+        {
+          "evidence_type": "CODE",
+          "description": "appointment_service.py line 6: `from models import VALID_PRIORITIES, appointment_row_to_dict` — the service imports VALID_PRIORITIES directly and uses it for input validation on line 22.",
+          "file_path": "demo_target/services/appointment_service.py",
+          "line_start": 6,
+          "symbol": "create_appointment",
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "appointment_service.py line 22: `if priority not in VALID_PRIORITIES:` — validation passes for 'critical' because VALID_PRIORITIES now includes it (models.py line 41).",
+          "file_path": "demo_target/services/appointment_service.py",
+          "line_start": 22,
+          "symbol": "create_appointment",
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "models.py line 41: VALID_PRIORITIES = {\"normal\", \"high\", \"emergency\", \"critical\"} — the expanded set is the root cause.",
+          "file_path": "demo_target/models.py",
+          "line_start": 41,
+          "symbol": "VALID_PRIORITIES",
+          "is_concrete": true
+        }
+      ],
+      "requirement_id": "R003",
+      "recommended_action": "Fixing VALID_PRIORITIES in models.py (IMPACT-003) will automatically fix this downstream impact. No change needed in appointment_service.py itself.",
+      "source_agent": "impact"
+    }
+  ],
+  "metrics": {
+    "changed_files_analyzed": 6,
+    "dependency_files_analyzed": 2,
+    "findings_by_requirement": {
+      "R001": 1,
+      "R002": 1,
+      "R003": 3,
+      "R004": 1,
+      "R005": 2
+    }
+  },
+  "repository": {
+    "repo_root": "R:/shipsafe-ai",
+    "branch": "main",
+    "head_commit": "5f95cd16041b2f63ffd9f811516fa42916f34e56",
+    "head_message": "feat: add deterministic ShipSafe analysis engine",
+    "is_clean": false
+  },
+  "git": {
+    "changed_files": [
+      {"status": "M", "path": "demo_target/db.py"},
+      {"status": "M", "path": "demo_target/models.py"},
+      {"status": "M", "path": "demo_target/routes/appointments.py"},
+      {"status": "M", "path": "demo_target/services/notification_service.py"},
+      {"status": "M", "path": "demo_target/tests/test_appointments.py"},
+      {"status": "M", "path": "demo_target/tests/test_notifications.py"}
+    ],
+    "diff_summary": {
+      "files_changed": 6,
+      "lines_added": 23,
+      "lines_deleted": 102
+    }
+  },
+  "requirements": [
+    {
+      "requirement_id": "R001",
+      "status": "NON_COMPLIANT",
+      "finding_ids": ["IMPACT-001"]
+    },
+    {
+      "requirement_id": "R002",
+      "status": "NON_COMPLIANT",
+      "finding_ids": ["IMPACT-002"]
+    },
+    {
+      "requirement_id": "R003",
+      "status": "NON_COMPLIANT",
+      "finding_ids": ["IMPACT-003", "IMPACT-004", "IMPACT-008"]
+    },
+    {
+      "requirement_id": "R004",
+      "status": "NON_COMPLIANT",
+      "finding_ids": ["IMPACT-005"]
+    },
+    {
+      "requirement_id": "R005",
+      "status": "NON_COMPLIANT",
+      "finding_ids": ["IMPACT-006", "IMPACT-007"]
+    }
+  ],
+  "test_analysis": {
+    "total_tests_in_suite": 31,
+    "tests_passed": 31,
+    "tests_failed": 0,
+    "note": "All 31 tests pass because the regression tests for R001/R002/R003 were removed in this release. A passing test suite does not indicate compliance — the absence of failure is a consequence of test removal, not correctness.",
+    "r001_covered": false,
+    "r002_covered": false,
+    "r003_priority_retrieval_covered": false,
+    "r004_parameterized_query_covered": false
+  }
+}

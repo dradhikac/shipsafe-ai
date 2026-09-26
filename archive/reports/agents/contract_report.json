@@ -1,0 +1,152 @@
+{
+  "report_type": "agent_report",
+  "generated_at": "2025-07-14T00:00:00Z",
+  "status": "RELEASE_BLOCKED",
+  "source_agent": "contract",
+  "summary": {
+    "total_findings": 5,
+    "critical_count": 0,
+    "high_count": 5,
+    "medium_count": 0,
+    "low_count": 0,
+    "info_count": 0,
+    "requirements_compliant": 0,
+    "requirements_non_compliant": 5,
+    "requirements_unverifiable": 0
+  },
+  "findings": [
+    {
+      "finding_id": "CONTRACT-R001",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R001",
+      "source_agent": "contract",
+      "title": "R001 FAIL — guard condition does not block cancelled appointments",
+      "description": "The send_reminder function in notification_service.py checks whether appointment status == 'completed' and raises ValueError in that case, but does NOT check for status == 'cancelled'. A cancelled appointment will therefore pass the guard and have a notification record inserted and committed, violating R001.",
+      "evidence": {
+        "file": "demo_target/services/notification_service.py",
+        "symbol": "send_reminder",
+        "lines": "25-29",
+        "code_snippet": "if row[\"status\"] == \"completed\":\n    raise ValueError(\n        f\"Appointment {appointment_id} is completed. \"\n        \"Reminders cannot be sent for completed appointments.\"\n    )",
+        "analysis": "Guard checks only 'completed'. The value 'cancelled' is absent from this condition. Execution continues to the INSERT INTO notifications statement at lines 32-35 for any cancelled appointment."
+      }
+    },
+    {
+      "finding_id": "CONTRACT-R002",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R002",
+      "source_agent": "contract",
+      "title": "R002 FAIL — eta_minutes absent from appointment_row_to_dict",
+      "description": "R002 requires that all appointment API responses include the fields 'appointment_id', 'status', and 'eta_minutes'. The function appointment_row_to_dict in models.py returns 'appointment_id' and 'status', but does not include 'eta_minutes'. The eta_minutes column exists in the DB schema (db.py line 50) and the migration (001_initial_schema.sql line 27), but is never projected into the serialised dict returned to API callers.",
+      "evidence": {
+        "file": "demo_target/models.py",
+        "symbol": "appointment_row_to_dict",
+        "lines": "27-36",
+        "code_snippet": "def appointment_row_to_dict(row):\n    return {\n        \"appointment_id\": row[\"id\"],\n        \"patient_id\": row[\"patient_id\"],\n        \"doctor_id\": row[\"doctor_id\"],\n        \"appointment_date\": row[\"appointment_date\"],\n        \"status\": row[\"status\"],\n        \"priority\": row[\"priority\"],\n        \"created_at\": row[\"created_at\"],\n    }",
+        "analysis": "The dict literal contains seven keys: appointment_id, patient_id, doctor_id, appointment_date, status, priority, created_at. The key 'eta_minutes' is absent. All three endpoints (POST /appointments, GET /appointments/<id>, POST /appointments/<id>/cancel) serialise responses via this function, so all three violate R002."
+      }
+    },
+    {
+      "finding_id": "CONTRACT-R003",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R003",
+      "source_agent": "contract",
+      "title": "R003 FAIL — priority CHECK constraint + 'critical' value added without migration",
+      "description": "R003 requires that the priority field accept values 'normal', 'high', 'emergency' only, and that changes be introduced via a versioned migration file. Two violations exist: (1) The application's in-memory SCHEMA constant in db.py (line 49) and the VALID_PRIORITIES set in models.py (line 41) both include the value 'critical', which is not listed in the R003 acceptance criteria and was not present in the baseline migration. (2) The only migration file is migrations/001_initial_schema.sql, which defines the priority column WITHOUT a CHECK constraint (line 26). No additional migration file exists to add the 'critical' value or to enforce the CHECK constraint via a versioned change. The application code therefore accepts 'critical' without any migration backing that schema extension.",
+      "evidence": {
+        "file_1": "demo_target/db.py",
+        "symbol_1": "SCHEMA",
+        "lines_1": "48-49",
+        "code_snippet_1": "priority         TEXT    NOT NULL DEFAULT 'normal'\n                     CHECK (priority IN ('normal', 'high', 'emergency', 'critical')),",
+        "file_2": "demo_target/models.py",
+        "symbol_2": "VALID_PRIORITIES",
+        "lines_2": "41",
+        "code_snippet_2": "VALID_PRIORITIES = {\"normal\", \"high\", \"emergency\", \"critical\"}",
+        "file_3": "migrations/001_initial_schema.sql",
+        "lines_3": "26",
+        "code_snippet_3": "priority         TEXT    NOT NULL DEFAULT 'normal',",
+        "analysis": "The migration file contains no CHECK constraint on priority and no 'critical' value. The application SCHEMA adds both the CHECK constraint and 'critical' without a corresponding versioned migration. R003 requires values 'normal', 'high', 'emergency' only; 'critical' is an unapproved addition. The migrations/ directory contains only 001_initial_schema.sql — no migration covering this change exists."
+      }
+    },
+    {
+      "finding_id": "CONTRACT-R004",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R004",
+      "source_agent": "contract",
+      "title": "R004 FAIL — user-controlled status concatenated into SQL",
+      "description": "R004 prohibits string concatenation of user input into SQL. The search_appointments route in routes/appointments.py constructs a SQL query by directly concatenating the user-supplied 'status' query parameter into the SQL string using the + operator. This is a SQL injection vulnerability and a direct violation of R004. The file's own docstring acknowledges this is an R004 violation.",
+      "evidence": {
+        "file": "demo_target/routes/appointments.py",
+        "symbol": "search_appointments",
+        "lines": "67-78",
+        "code_snippet": "status = request.args.get(\"status\", \"\")\ndb = get_db()\nquery = \"SELECT * FROM appointments WHERE status = '\" + status + \"'\"\nrows = db.execute(query).fetchall()",
+        "analysis": "Line 76 concatenates user-supplied input (request.args.get('status')) directly into the SQL query string using string concatenation (+). No parameterized placeholder (?) is used. The function docstring at lines 69-72 explicitly notes: 'R004 violation: user-supplied status is concatenated directly into the SQL query string instead of using a parameterized placeholder.'"
+      }
+    },
+    {
+      "finding_id": "CONTRACT-R005",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R005",
+      "source_agent": "contract",
+      "title": "R005 FAIL — R001/R002/R003 regression tests absent",
+      "description": "R005 requires regression tests for R001 (cancelled appointment does not trigger reminder), R002 (API response includes appointment_id, status, eta_minutes), and R003 (priority values persisted and retrievable). None of the three required test functions are present in the test suite.",
+      "evidence": {
+        "file_1": "demo_target/tests/test_notifications.py",
+        "lines_1": "1-47",
+        "missing_test_1": "test_cancelled_appointment_does_not_trigger_reminder",
+        "analysis_1": "test_notifications.py contains four tests: test_reminder_sent_for_scheduled_appointment, test_reminder_response_contains_message, test_reminder_for_nonexistent_appointment, test_multiple_reminders_for_scheduled_appointment. The required test 'test_cancelled_appointment_does_not_trigger_reminder' is entirely absent.",
+        "file_2": "demo_target/tests/test_appointments.py",
+        "lines_2": "1-114",
+        "missing_test_2": "test_create_appointment_response_includes_required_fields",
+        "missing_test_3": "test_appointment_priority_persisted_*",
+        "analysis_2": "test_appointments.py contains tests for creation, retrieval, and cancellation flows. The required test 'test_create_appointment_response_includes_required_fields' (R002) is absent — no test asserts the presence of 'eta_minutes' in any response. No test matching 'test_appointment_priority_persisted_*' (R003) is present — no test verifies that the priority value submitted at creation is retrievable via GET."
+      }
+    }
+  ],
+  "metrics": {},
+  "repository": {},
+  "git": {},
+  "requirements": [
+    {
+      "requirement_id": "R001",
+      "title": "Cancelled appointments must not generate reminder notifications",
+      "status": "NON_COMPLIANT"
+    },
+    {
+      "requirement_id": "R002",
+      "title": "Appointment API responses must include appointment_id, status, and eta_minutes",
+      "status": "NON_COMPLIANT"
+    },
+    {
+      "requirement_id": "R003",
+      "title": "Appointment priority must be persisted through a versioned database migration",
+      "status": "NON_COMPLIANT"
+    },
+    {
+      "requirement_id": "R004",
+      "title": "User-controlled database search input must use parameterized database queries",
+      "status": "NON_COMPLIANT"
+    },
+    {
+      "requirement_id": "R005",
+      "title": "Regression tests must cover cancellation, API contract changes, and appointment priority",
+      "status": "NON_COMPLIANT"
+    }
+  ],
+  "test_analysis": {
+    "test_files_inspected": [
+      "demo_target/tests/test_notifications.py",
+      "demo_target/tests/test_appointments.py"
+    ],
+    "r001_regression_test_present": false,
+    "r001_required_test": "test_cancelled_appointment_does_not_trigger_reminder",
+    "r002_regression_test_present": false,
+    "r002_required_test": "test_create_appointment_response_includes_required_fields",
+    "r003_regression_test_present": false,
+    "r003_required_test": "test_appointment_priority_persisted_*"
+  }
+}

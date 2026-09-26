@@ -1,0 +1,77 @@
+{
+  "generated_at": "2026-09-26T14:05:00.000000+00:00",
+  "audit_name": "ShipSafe AI Final Requirement Validation",
+  "overall_status": "COMPLIANT",
+  "total_requirements": 5,
+  "passed_requirements": 5,
+  "failed_requirements": 0,
+  "requirements": [
+    {
+      "requirement_id": "R001",
+      "title": "Cancelled appointments must not generate reminder notifications",
+      "status": "PASS",
+      "validation_state": "VALIDATED",
+      "implementation_file": "demo_target/services/notification_service.py",
+      "guard_check": "if row[\"status\"] == \"cancelled\": raise ValueError(\"Cannot send reminder for cancelled appointment\")",
+      "validation_tests": [
+        "demo_target/tests/test_notifications.py::test_cancelled_appointment_does_not_trigger_reminder",
+        "demo_target/tests/test_notifications.py::test_cancelled_appointment_reminder_returns_error_message"
+      ],
+      "evidence": "Guard executes prior to notification persistence, preventing unwanted reminder records and returning HTTP 400 error."
+    },
+    {
+      "requirement_id": "R002",
+      "title": "Appointment API responses must include appointment_id, status, and eta_minutes",
+      "status": "PASS",
+      "validation_state": "VALIDATED",
+      "implementation_file": "demo_target/models.py",
+      "guard_check": "\"eta_minutes\": row[\"eta_minutes\"] in appointment_row_to_dict",
+      "validation_tests": [
+        "demo_target/tests/test_appointments.py::test_create_appointment_response_includes_required_fields",
+        "demo_target/tests/test_appointments.py::test_get_appointment_response_includes_required_fields",
+        "demo_target/tests/test_appointments.py::test_cancel_appointment_response_includes_required_fields"
+      ],
+      "evidence": "All three endpoints (POST /appointments, GET /appointments/<id>, POST /appointments/<id>/cancel) serialize appointment_id, status, and eta_minutes."
+    },
+    {
+      "requirement_id": "R003",
+      "title": "Appointment priority must be persisted through a versioned database migration (allowed: normal, high, emergency)",
+      "status": "PASS",
+      "validation_state": "VALIDATED",
+      "implementation_file": "demo_target/models.py and demo_target/db.py",
+      "guard_check": "VALID_PRIORITIES = {'normal', 'high', 'emergency'}; CHECK (priority IN ('normal', 'high', 'emergency'))",
+      "validation_tests": [
+        "demo_target/tests/test_appointments.py::test_create_appointment_invalid_priority_critical",
+        "demo_target/tests/test_appointments.py::test_appointment_priority_persisted_normal",
+        "demo_target/tests/test_appointments.py::test_appointment_priority_persisted_high",
+        "demo_target/tests/test_appointments.py::test_appointment_priority_persisted_emergency"
+      ],
+      "evidence": "Unauthorized 'critical' priority is rejected with HTTP 400. Table constraints match initial schema migration 001_initial_schema.sql. No unauthorized migration 002 exists."
+    },
+    {
+      "requirement_id": "R004",
+      "title": "User-controlled database search input must use parameterized database queries",
+      "status": "PASS",
+      "validation_state": "VALIDATED",
+      "implementation_file": "demo_target/routes/appointments.py",
+      "guard_check": "query_db(\"SELECT * FROM appointments WHERE status = ? ORDER BY id DESC\", (status,))",
+      "validation_tests": [
+        "demo_target/tests/test_appointments.py::test_search_appointments_by_status",
+        "demo_target/tests/test_appointments.py::test_search_appointments_sql_injection_defense"
+      ],
+      "evidence": "Malicious payload (cancelled' OR '1'='1) returns empty list and does not execute arbitrary SQL or bypass query filters."
+    },
+    {
+      "requirement_id": "R005",
+      "title": "Regression tests must cover cancellation, API contract changes, and appointment priority",
+      "status": "PASS",
+      "validation_state": "VALIDATED",
+      "implementation_file": "demo_target/tests/test_notifications.py and demo_target/tests/test_appointments.py",
+      "guard_check": "42 total regression tests executing in demo_target/tests/",
+      "validation_tests": [
+        "All 42 tests in demo_target/tests/ passing (100% pass rate)"
+      ],
+      "evidence": "All 7 deleted regression tests restored; suite expanded from 38 baseline and 31 bad-release to 42 verified tests."
+    }
+  ]
+}

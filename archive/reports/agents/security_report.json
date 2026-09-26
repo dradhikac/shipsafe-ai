@@ -1,0 +1,49 @@
+{
+  "report_type": "agent_report",
+  "generated_at": "2025-07-14T00:00:00Z",
+  "status": "RELEASE_BLOCKED",
+  "source_agent": "security",
+  "summary": {
+    "total_findings": 1,
+    "critical_count": 1,
+    "high_count": 0,
+    "medium_count": 0,
+    "low_count": 0,
+    "info_count": 0,
+    "requirements_compliant": 0,
+    "requirements_non_compliant": 1,
+    "requirements_unverifiable": 0
+  },
+  "findings": [
+    {
+      "finding_id": "SECURITY-001",
+      "severity": "CRITICAL",
+      "finding_status": "CONFIRMED",
+      "title": "SQL injection via user-controlled status parameter in /appointments/search",
+      "requirement_id": "R004",
+      "source_agent": "security",
+      "description": "The search_appointments endpoint at GET /appointments/search reads the 'status' query parameter directly from request.args and concatenates it into a raw SQL string without any parameterization, escaping, or validation. An attacker can supply a crafted value such as `' OR '1'='1` to manipulate the query, exfiltrate all appointment records, or perform blind boolean-based injection attacks. This is a textbook SQL injection vulnerability (CWE-89).",
+      "remediation": "Replace string concatenation with a parameterized query. Use `db.execute(\"SELECT * FROM appointments WHERE status = ?\", (status,))` so the database driver safely handles the user-supplied value as a literal parameter, not executable SQL.",
+      "evidence": [
+        {
+          "evidence_type": "CODE",
+          "file_path": "demo_target/routes/appointments.py",
+          "symbol": "search_appointments",
+          "start_line": 74,
+          "end_line": 77,
+          "description": "Lines 74–77 contain the injection. Line 74 captures unsanitized user input: `status = request.args.get(\"status\", \"\")`. Line 76 builds the SQL string by direct concatenation: `query = \"SELECT * FROM appointments WHERE status = '\" + status + \"'\"`. Line 77 executes the constructed query verbatim: `rows = db.execute(query).fetchall()`. There is no parameterization, allow-list validation, or escaping anywhere in this code path."
+        },
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "requirement_id": "R004",
+          "description": "Requirement R004 mandates that all database queries use parameterized statements (prepared statements / bind variables) to prevent SQL injection. The search_appointments implementation directly violates R004 by constructing a query via string concatenation instead. Every other query in the codebase (appointment_service.py, notification_service.py, and the other endpoints in routes/appointments.py) correctly uses the `?` placeholder pattern required by R004; this endpoint is the sole non-compliant outlier introduced in the current diff."
+        }
+      ]
+    }
+  ],
+  "metrics": {},
+  "repository": {},
+  "git": {},
+  "requirements": [],
+  "test_analysis": {}
+}

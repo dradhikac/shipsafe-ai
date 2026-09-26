@@ -1,0 +1,250 @@
+{
+  "report_type": "agent_report",
+  "generated_at": "2025-07-14T00:00:00Z",
+  "status": "RELEASE_BLOCKED",
+  "source_agent": "test_gap",
+  "summary": {
+    "total_findings": 7,
+    "critical_count": 0,
+    "high_count": 6,
+    "medium_count": 1,
+    "low_count": 0,
+    "info_count": 0,
+    "requirements_compliant": 0,
+    "requirements_non_compliant": 4,
+    "requirements_unverifiable": 0
+  },
+  "findings": [
+    {
+      "finding_id": "TESTGAP-001",
+      "title": "Missing test: cancelled appointment must not trigger reminder",
+      "description": "The notification_service.send_reminder guard was changed from checking status == 'cancelled' to status == 'completed'. The baseline test test_cancelled_appointment_does_not_trigger_reminder that verified reminders are blocked for cancelled appointments has been removed. test_notifications.py now contains only 4 tests (lines 17-47), none of which cancel an appointment before calling /reminder. The regression is undetected: cancelled appointments now silently receive reminders.",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R001",
+      "affected_files": ["demo_target/tests/test_notifications.py", "demo_target/services/notification_service.py"],
+      "recommended_action": "Restore test_cancelled_appointment_does_not_trigger_reminder in test_notifications.py and fix the guard in send_reminder to check status == 'cancelled'.",
+      "source_agent": "test_gap",
+      "evidence": [
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "test_cancelled_appointment_does_not_trigger_reminder confirmed absent: test_notifications.py contains only test_reminder_sent_for_scheduled_appointment, test_reminder_response_contains_message, test_reminder_for_nonexistent_appointment, test_multiple_reminders_for_scheduled_appointment. No test cancels an appointment and then asserts the reminder is blocked.",
+          "file_path": "demo_target/tests/test_notifications.py",
+          "test_name": "test_cancelled_appointment_does_not_trigger_reminder",
+          "symbol": "send_reminder",
+          "line_start": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "Line 25: guard reads `if row[\"status\"] == \"completed\"` — was previously 'cancelled'. Cancelled appointments now pass through the guard and receive reminders.",
+          "file_path": "demo_target/services/notification_service.py",
+          "symbol": "send_reminder",
+          "line_start": 25,
+          "is_concrete": true
+        }
+      ]
+    },
+    {
+      "finding_id": "TESTGAP-002",
+      "title": "Missing test: cancelled appointment reminder must return error message",
+      "description": "The baseline test test_cancelled_appointment_reminder_returns_error_message verified that the error response body for a blocked reminder contains a meaningful message. It has been removed alongside TESTGAP-001. With the guard now keyed on 'completed' instead of 'cancelled', the error-message contract for cancelled appointments is entirely untested.",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R001",
+      "affected_files": ["demo_target/tests/test_notifications.py"],
+      "recommended_action": "Restore test_cancelled_appointment_reminder_returns_error_message in test_notifications.py.",
+      "source_agent": "test_gap",
+      "evidence": [
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "test_cancelled_appointment_reminder_returns_error_message confirmed absent from test_notifications.py. No test asserts the 400 response or error text when reminder is attempted on a cancelled appointment.",
+          "file_path": "demo_target/tests/test_notifications.py",
+          "test_name": "test_cancelled_appointment_reminder_returns_error_message",
+          "symbol": "send_reminder",
+          "line_start": null,
+          "is_concrete": true
+        }
+      ]
+    },
+    {
+      "finding_id": "TESTGAP-003",
+      "title": "Missing test: appointment creation response includes required fields",
+      "description": "The baseline test test_create_appointment_response_includes_required_fields verified that the JSON body returned by POST /appointments contained all required fields including eta_minutes. R002 removed eta_minutes from appointment_row_to_dict, meaning the serialised response no longer includes that field. The test that would catch this regression has been removed from test_appointments.py.",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R002",
+      "affected_files": ["demo_target/tests/test_appointments.py", "demo_target/models.py"],
+      "recommended_action": "Restore test_create_appointment_response_includes_required_fields in test_appointments.py and restore eta_minutes in appointment_row_to_dict.",
+      "source_agent": "test_gap",
+      "evidence": [
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "test_create_appointment_response_includes_required_fields confirmed absent: test_appointments.py contains 11 tests; none assert the full set of fields returned by the creation response, and none reference eta_minutes.",
+          "file_path": "demo_target/tests/test_appointments.py",
+          "test_name": "test_create_appointment_response_includes_required_fields",
+          "symbol": "appointment_row_to_dict",
+          "line_start": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "Lines 28-36: appointment_row_to_dict returns appointment_id, patient_id, doctor_id, appointment_date, status, priority, created_at — eta_minutes is omitted. The db schema (db.py line 50) still stores eta_minutes.",
+          "file_path": "demo_target/models.py",
+          "symbol": "appointment_row_to_dict",
+          "line_start": 28,
+          "line_end": 36,
+          "is_concrete": true
+        }
+      ]
+    },
+    {
+      "finding_id": "TESTGAP-004",
+      "title": "Missing test: cancel appointment response includes required fields",
+      "description": "The baseline test test_cancel_appointment_response_includes_required_fields verified the JSON body returned by POST /appointments/<id>/cancel. With eta_minutes removed from appointment_row_to_dict, cancellation responses are also affected. The covering test has been removed.",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R002",
+      "affected_files": ["demo_target/tests/test_appointments.py"],
+      "recommended_action": "Restore test_cancel_appointment_response_includes_required_fields in test_appointments.py.",
+      "source_agent": "test_gap",
+      "evidence": [
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "test_cancel_appointment_response_includes_required_fields confirmed absent: test_cancel_appointment_success (lines 81-88) only asserts status == 'cancelled'; no test checks the complete field set of the cancel response.",
+          "file_path": "demo_target/tests/test_appointments.py",
+          "test_name": "test_cancel_appointment_response_includes_required_fields",
+          "symbol": "appointment_row_to_dict",
+          "line_start": null,
+          "is_concrete": true
+        }
+      ]
+    },
+    {
+      "finding_id": "TESTGAP-005",
+      "title": "Missing tests: appointment priority round-trip for normal/high/emergency/critical",
+      "description": "Three baseline tests (test_appointment_priority_persisted_normal, test_appointment_priority_persisted_high, test_appointment_priority_persisted_emergency) have been removed from test_appointments.py. R003 additionally added 'critical' to VALID_PRIORITIES and to the db CHECK constraint, but no test exercises the 'critical' priority round-trip either. The only priority-related test remaining is test_create_appointment_invalid_priority, which only checks rejection of an invalid value.",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R003",
+      "affected_files": ["demo_target/tests/test_appointments.py", "demo_target/models.py", "demo_target/db.py"],
+      "recommended_action": "Restore priority persistence tests for all four valid values (normal, high, emergency, critical) in test_appointments.py.",
+      "source_agent": "test_gap",
+      "evidence": [
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "test_appointment_priority_persisted_normal confirmed absent from test_appointments.py. No test reads back the priority field after creating an appointment with priority='normal'.",
+          "file_path": "demo_target/tests/test_appointments.py",
+          "test_name": "test_appointment_priority_persisted_normal",
+          "symbol": "create_appointment",
+          "line_start": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "test_appointment_priority_persisted_high confirmed absent. No test reads back the priority field after creating an appointment with priority='high'.",
+          "file_path": "demo_target/tests/test_appointments.py",
+          "test_name": "test_appointment_priority_persisted_high",
+          "symbol": "create_appointment",
+          "line_start": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "test_appointment_priority_persisted_emergency confirmed absent. No test reads back the priority field after creating an appointment with priority='emergency'.",
+          "file_path": "demo_target/tests/test_appointments.py",
+          "test_name": "test_appointment_priority_persisted_emergency",
+          "symbol": "create_appointment",
+          "line_start": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "models.py line 41: VALID_PRIORITIES = {\"normal\", \"high\", \"emergency\", \"critical\"}. 'critical' added without a corresponding test.",
+          "file_path": "demo_target/models.py",
+          "symbol": "VALID_PRIORITIES",
+          "line_start": 41,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "db.py line 49: CHECK (priority IN ('normal', 'high', 'emergency', 'critical')) — schema constraint extended in R003 bad release.",
+          "file_path": "demo_target/db.py",
+          "symbol": "SCHEMA",
+          "line_start": 49,
+          "is_concrete": true
+        }
+      ]
+    },
+    {
+      "finding_id": "TESTGAP-006",
+      "title": "No test for GET /appointments/search endpoint",
+      "description": "The new /appointments/search route (R004) is completely untested. No test file contains any reference to '/appointments/search'. The endpoint concatenates the user-supplied 'status' query parameter directly into a raw SQL string (routes/appointments.py line 76), creating a SQL injection vulnerability. Neither the happy-path response nor the injection vector has any test coverage.",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R004",
+      "affected_files": ["demo_target/routes/appointments.py"],
+      "recommended_action": "Add tests for GET /appointments/search in test_appointments.py, including a test that confirms parameterized queries are used.",
+      "source_agent": "test_gap",
+      "evidence": [
+        {
+          "evidence_type": "FILE_PRESENCE",
+          "description": "Confirmed absent from all 5 test files: test_appointments.py (14 tests), test_notifications.py (4), test_patients.py (7), test_doctors.py (7), test_health.py (2). None reference '/appointments/search'.",
+          "file_path": "demo_target/tests/test_appointments.py",
+          "test_name": "test_search_appointments_by_status",
+          "symbol": "search_appointments",
+          "line_start": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "routes/appointments.py line 76: `query = \"SELECT * FROM appointments WHERE status = '\" + status + \"'\"` — raw string concatenation of user input. Untested SQL injection surface.",
+          "file_path": "demo_target/routes/appointments.py",
+          "symbol": "search_appointments",
+          "line_start": 76,
+          "is_concrete": true
+        }
+      ]
+    },
+    {
+      "finding_id": "TESTGAP-007",
+      "title": "Regression test suite reduced from 38 to 31: 7 tests deliberately removed",
+      "description": "Seven tests were removed from the test suite as part of the bad release. This systematic removal of coverage for the exact changed behaviours (R001, R002, R003) constitutes a violation of the regression testing requirement itself. The remaining 31 tests do not exercise any of the four changed code paths in a way that would detect the introduced regressions.",
+      "severity": "MEDIUM",
+      "finding_status": "CONFIRMED",
+      "requirement_id": "R005",
+      "affected_files": ["demo_target/tests/test_notifications.py", "demo_target/tests/test_appointments.py"],
+      "recommended_action": "Restore all 7 removed tests and ensure regression coverage for every changed code path.",
+      "source_agent": "test_gap",
+      "evidence": [
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "test_notifications.py now has 4 tests; 2 covering cancelled-appointment reminder blocking were removed.",
+          "file_path": "demo_target/tests/test_notifications.py",
+          "test_name": "test_cancelled_appointment_does_not_trigger_reminder",
+          "symbol": "send_reminder",
+          "line_start": null,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "REQUIREMENT_GAP",
+          "description": "test_appointments.py now has 11 tests; 2 response-field tests and 3 priority-persistence tests were removed.",
+          "file_path": "demo_target/tests/test_appointments.py",
+          "test_name": "test_create_appointment_response_includes_required_fields",
+          "symbol": "appointment_row_to_dict",
+          "line_start": null,
+          "is_concrete": true
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "baseline_test_count": 38,
+    "current_test_count": 31,
+    "tests_removed": 7
+  },
+  "repository": {},
+  "git": {},
+  "requirements": [],
+  "test_analysis": {}
+}

@@ -1,0 +1,62 @@
+{
+  "report_type": "agent_report",
+  "generated_at": "2025-07-14T00:00:00Z",
+  "status": "RELEASE_BLOCKED",
+  "source_agent": "database",
+  "summary": {
+    "total_findings": 1,
+    "critical_count": 0,
+    "high_count": 1,
+    "medium_count": 0,
+    "low_count": 0,
+    "info_count": 0,
+    "requirements_compliant": 0,
+    "requirements_non_compliant": 0,
+    "requirements_unverifiable": 0
+  },
+  "findings": [
+    {
+      "finding_id": "DATABASE-001",
+      "severity": "HIGH",
+      "finding_status": "CONFIRMED",
+      "title": "Priority column CHECK constraint and 'critical' value added without versioned migration",
+      "description": "The application schema in demo_target/db.py defines the appointments.priority column as: `priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('normal', 'high', 'emergency', 'critical'))`. This adds two things that were never present in any migration: (1) a CHECK constraint restricting accepted values, and (2) a new value 'critical' not present in the original set. The only migration on disk, migrations/001_initial_schema.sql, defines the same column as: `priority TEXT NOT NULL DEFAULT 'normal'` — no CHECK constraint and no enumeration of valid values. There is no migrations/002_* file to account for this change. Because init_db() applies the in-memory SCHEMA constant (not the migration files) to fresh databases, a newly provisioned instance will have the CHECK constraint, while any database that was migrated incrementally from migration 001 will not — creating a schema drift between environments. Additionally, demo_target/models.py VALID_PRIORITIES already includes 'critical', meaning the application will accept and attempt to persist this value even on databases created from migration 001 where no such constraint exists, introducing inconsistency in data validation behavior across environments.",
+      "affected_files": [
+        "demo_target/db.py",
+        "demo_target/models.py"
+      ],
+      "requirement_id": "R003",
+      "recommended_action": "Create migrations/002_add_priority_critical.sql that adds the CHECK constraint and documents the new 'critical' value. Because SQLite does not support ALTER TABLE ... ADD CONSTRAINT directly, this migration should recreate the appointments table with the new column definition (using the standard SQLite table-rebuild pattern: rename old table, create new table with constraint, copy data, drop old table), then insert '002' into schema_migrations.",
+      "source_agent": "database",
+      "evidence": [
+        {
+          "evidence_type": "SCHEMA_CHANGE",
+          "description": "demo_target/db.py SCHEMA defines priority column with CHECK constraint and 'critical' value (line 49); migrations/001_initial_schema.sql defines the same column as `priority TEXT NOT NULL DEFAULT 'normal'` with no constraint (line 26). The two definitions are out of sync and no migration bridges the gap.",
+          "file_path": "demo_target/db.py",
+          "symbol": "SCHEMA",
+          "line_start": 49,
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "FILE_PRESENCE",
+          "description": "migrations/ directory contains only 001_initial_schema.sql — no 002_* migration file exists to introduce the CHECK constraint or the 'critical' value into databases that were initialised incrementally from migration 001.",
+          "file_path": "migrations/001_initial_schema.sql",
+          "is_concrete": true
+        },
+        {
+          "evidence_type": "CODE",
+          "description": "demo_target/models.py VALID_PRIORITIES (line 41) includes 'critical' — the application accepts and will attempt to persist a value not present in any migration, producing divergent validation behavior depending on which schema path was used to initialise the database.",
+          "file_path": "demo_target/models.py",
+          "symbol": "VALID_PRIORITIES",
+          "line_start": 41,
+          "is_concrete": true
+        }
+      ]
+    }
+  ],
+  "metrics": {},
+  "repository": {},
+  "git": {},
+  "requirements": [],
+  "test_analysis": {}
+}

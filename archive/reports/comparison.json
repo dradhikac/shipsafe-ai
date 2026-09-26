@@ -1,0 +1,619 @@
+{
+  "generated_at": "2026-09-26T14:07:20.230108+00:00",
+  "baseline": {
+    "state": "BASELINE",
+    "captured_at": "2026-09-26T10:35:56.692695+00:00",
+    "git": {
+      "commit": "ae6b3580b4bf31af833d55b8763fb13485ad249e",
+      "branch": "main",
+      "is_clean": false,
+      "files_changed": 1,
+      "lines_added": 6,
+      "lines_deleted": 5
+    },
+    "tests": {
+      "total": 38,
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "duration_seconds": 3.89
+    },
+    "coverage": {
+      "available": true,
+      "percent": 98.0,
+      "statements": 434,
+      "missed": 10
+    },
+    "requirements": {
+      "total": 5,
+      "failed": 0,
+      "passed": 5,
+      "warning": 0,
+      "unverifiable": 0
+    },
+    "findings": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "info": 0,
+      "total": 0
+    },
+    "affected_files": 0
+  },
+  "bad_release": {
+    "state": "BAD_RELEASE",
+    "captured_at": "2026-09-26T10:36:04.498849+00:00",
+    "git": {
+      "commit": "ae6b3580b4bf31af833d55b8763fb13485ad249e",
+      "branch": "main",
+      "is_clean": false,
+      "files_changed": 7,
+      "lines_added": 29,
+      "lines_deleted": 107
+    },
+    "tests": {
+      "total": 31,
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "duration_seconds": 4.45
+    },
+    "coverage": {
+      "available": true,
+      "percent": 96.0,
+      "statements": 396,
+      "missed": 16
+    },
+    "requirements": {
+      "total": 5,
+      "failed": 5,
+      "passed": 0,
+      "warning": 0,
+      "unverifiable": 0
+    },
+    "findings": {
+      "critical": 1,
+      "high": 19,
+      "medium": 2,
+      "low": 0,
+      "info": 0,
+      "total": 22
+    },
+    "affected_files": 12
+  },
+  "post_remediation": {
+    "state": "POST_REMEDIATION",
+    "captured_at": "2026-09-26T14:07:10.472142+00:00",
+    "git": {
+      "commit": "ae6b3580b4bf31af833d55b8763fb13485ad249e",
+      "branch": "main",
+      "is_clean": false,
+      "files_changed": 5,
+      "lines_added": 152,
+      "lines_deleted": 98
+    },
+    "tests": {
+      "total": 42,
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "duration_seconds": 7.05
+    },
+    "coverage": {
+      "available": true,
+      "percent": 98.0,
+      "statements": 478,
+      "missed": 10
+    },
+    "requirements": {
+      "total": 5,
+      "failed": 0,
+      "passed": 5,
+      "warning": 0,
+      "unverifiable": 0
+    },
+    "findings": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "info": 0,
+      "total": 0
+    },
+    "affected_files": 6
+  },
+  "comparisons": {
+    "bad_release_vs_baseline": {
+      "tests": {
+        "total": {
+          "before": 38,
+          "current": 31,
+          "delta": -7,
+          "status": "AVAILABLE"
+        },
+        "passed": {
+          "before": 38,
+          "current": 31,
+          "delta": -7,
+          "status": "AVAILABLE"
+        },
+        "failed": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "skipped": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "errors": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "duration_seconds": {
+          "before": 3.89,
+          "current": 4.45,
+          "delta": 0.56,
+          "status": "AVAILABLE"
+        }
+      },
+      "coverage": {
+        "percent": {
+          "before": 98.0,
+          "current": 96.0,
+          "delta": -2.0,
+          "status": "AVAILABLE"
+        },
+        "statements": {
+          "before": 434,
+          "current": 396,
+          "delta": -38,
+          "status": "AVAILABLE"
+        },
+        "missed": {
+          "before": 10,
+          "current": 16,
+          "delta": 6,
+          "status": "AVAILABLE"
+        }
+      },
+      "requirements": {
+        "total": {
+          "before": 5,
+          "current": 5,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "passed": {
+          "before": 5,
+          "current": 0,
+          "delta": -5,
+          "status": "AVAILABLE"
+        },
+        "failed": {
+          "before": 0,
+          "current": 5,
+          "delta": 5,
+          "status": "AVAILABLE"
+        },
+        "warning": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "unverifiable": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        }
+      },
+      "findings": {
+        "critical": {
+          "before": 0,
+          "current": 1,
+          "delta": 1,
+          "status": "AVAILABLE"
+        },
+        "high": {
+          "before": 0,
+          "current": 19,
+          "delta": 19,
+          "status": "AVAILABLE"
+        },
+        "medium": {
+          "before": 0,
+          "current": 2,
+          "delta": 2,
+          "status": "AVAILABLE"
+        },
+        "low": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "info": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "total": {
+          "before": 0,
+          "current": 22,
+          "delta": 22,
+          "status": "AVAILABLE"
+        }
+      },
+      "changes": {
+        "files_changed": {
+          "before": 1,
+          "current": 7,
+          "delta": 6,
+          "status": "AVAILABLE"
+        },
+        "lines_added": {
+          "before": 6,
+          "current": 29,
+          "delta": 23,
+          "status": "AVAILABLE"
+        },
+        "lines_deleted": {
+          "before": 5,
+          "current": 107,
+          "delta": 102,
+          "status": "AVAILABLE"
+        },
+        "affected_files": {
+          "before": 0,
+          "current": 12,
+          "delta": 12,
+          "status": "AVAILABLE"
+        }
+      }
+    },
+    "post_remediation_vs_bad_release": {
+      "tests": {
+        "total": {
+          "before": 31,
+          "current": 42,
+          "delta": 11,
+          "status": "AVAILABLE"
+        },
+        "passed": {
+          "before": 31,
+          "current": 42,
+          "delta": 11,
+          "status": "AVAILABLE"
+        },
+        "failed": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "skipped": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "errors": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "duration_seconds": {
+          "before": 4.45,
+          "current": 7.05,
+          "delta": 2.6,
+          "status": "AVAILABLE"
+        }
+      },
+      "coverage": {
+        "percent": {
+          "before": 96.0,
+          "current": 98.0,
+          "delta": 2.0,
+          "status": "AVAILABLE"
+        },
+        "statements": {
+          "before": 396,
+          "current": 478,
+          "delta": 82,
+          "status": "AVAILABLE"
+        },
+        "missed": {
+          "before": 16,
+          "current": 10,
+          "delta": -6,
+          "status": "AVAILABLE"
+        }
+      },
+      "requirements": {
+        "total": {
+          "before": 5,
+          "current": 5,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "passed": {
+          "before": 0,
+          "current": 5,
+          "delta": 5,
+          "status": "AVAILABLE"
+        },
+        "failed": {
+          "before": 5,
+          "current": 0,
+          "delta": -5,
+          "status": "AVAILABLE"
+        },
+        "warning": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "unverifiable": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        }
+      },
+      "findings": {
+        "critical": {
+          "before": 1,
+          "current": 0,
+          "delta": -1,
+          "status": "AVAILABLE"
+        },
+        "high": {
+          "before": 19,
+          "current": 0,
+          "delta": -19,
+          "status": "AVAILABLE"
+        },
+        "medium": {
+          "before": 2,
+          "current": 0,
+          "delta": -2,
+          "status": "AVAILABLE"
+        },
+        "low": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "info": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "total": {
+          "before": 22,
+          "current": 0,
+          "delta": -22,
+          "status": "AVAILABLE"
+        }
+      }
+    },
+    "post_remediation_vs_baseline": {
+      "tests": {
+        "total": {
+          "before": 38,
+          "current": 42,
+          "delta": 4,
+          "status": "AVAILABLE"
+        },
+        "passed": {
+          "before": 38,
+          "current": 42,
+          "delta": 4,
+          "status": "AVAILABLE"
+        },
+        "failed": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "skipped": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "errors": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "duration_seconds": {
+          "before": 3.89,
+          "current": 7.05,
+          "delta": 3.16,
+          "status": "AVAILABLE"
+        }
+      },
+      "coverage": {
+        "percent": {
+          "before": 98.0,
+          "current": 98.0,
+          "delta": 0.0,
+          "status": "AVAILABLE"
+        },
+        "statements": {
+          "before": 434,
+          "current": 478,
+          "delta": 44,
+          "status": "AVAILABLE"
+        },
+        "missed": {
+          "before": 10,
+          "current": 10,
+          "delta": 0,
+          "status": "AVAILABLE"
+        }
+      },
+      "requirements": {
+        "total": {
+          "before": 5,
+          "current": 5,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "passed": {
+          "before": 5,
+          "current": 5,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "failed": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "warning": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "unverifiable": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        }
+      },
+      "findings": {
+        "critical": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "high": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "medium": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "low": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "info": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        },
+        "total": {
+          "before": 0,
+          "current": 0,
+          "delta": 0,
+          "status": "AVAILABLE"
+        }
+      }
+    },
+    "metrics_summary": {
+      "tests_total": {
+        "baseline": 38,
+        "bad_release": 31,
+        "post_remediation": 42,
+        "delta_bad_release": -7,
+        "delta_remediation": 11
+      },
+      "tests_passed": {
+        "baseline": 38,
+        "bad_release": 31,
+        "post_remediation": 42,
+        "delta_bad_release": -7,
+        "delta_remediation": 11
+      },
+      "tests_failed": {
+        "baseline": 0,
+        "bad_release": 0,
+        "post_remediation": 0,
+        "delta_bad_release": 0,
+        "delta_remediation": 0
+      },
+      "coverage_percent": {
+        "baseline": 98.0,
+        "bad_release": 96.0,
+        "post_remediation": 98.0,
+        "delta_bad_release": -2.0,
+        "delta_remediation": 2.0
+      },
+      "requirements_passed": {
+        "baseline": 5,
+        "bad_release": 0,
+        "post_remediation": 5,
+        "delta_bad_release": -5,
+        "delta_remediation": 5
+      },
+      "requirements_failed": {
+        "baseline": 0,
+        "bad_release": 5,
+        "post_remediation": 0,
+        "delta_bad_release": 5,
+        "delta_remediation": -5
+      },
+      "findings_critical": {
+        "baseline": 0,
+        "bad_release": 1,
+        "post_remediation": 0,
+        "delta_bad_release": 1,
+        "delta_remediation": -1
+      },
+      "findings_high": {
+        "baseline": 0,
+        "bad_release": 19,
+        "post_remediation": 0,
+        "delta_bad_release": 19,
+        "delta_remediation": -19
+      },
+      "findings_total": {
+        "baseline": 0,
+        "bad_release": 22,
+        "post_remediation": 0,
+        "delta_bad_release": 22,
+        "delta_remediation": -22
+      },
+      "affected_files": {
+        "baseline": 0,
+        "bad_release": 12,
+        "post_remediation": 6,
+        "delta_bad_release": 12,
+        "delta_remediation": -6
+      }
+    }
+  }
+}
