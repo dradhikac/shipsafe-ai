@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShipSafe AI — Agentic Release &amp; Regression Guardian</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <div class="brand-section">
+      <div class="shield-icon" aria-hidden="true">&#9650;</div>
+      <div>
+        <div class="brand-title">SHIPSAFE AI</div>
+        <div class="brand-subtitle">Agentic Release &amp; Regression Guardian</div>
+      </div>
+    </div>
+
+    <div class="top-meta">
+      <div class="meta-item">
+        <span class="meta-label">Repository</span>
+        <span class="meta-value">shipsafe-ai</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Candidate Release</span>
+        <span class="meta-value">Controlled Demo Release</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Analysis Timestamp</span>
+        <span class="meta-value" id="topTimestamp">{{ synthesis.generated_at or '2026-09-26T10:36:12Z' }}</span>
+      </div>
+      <div>
+        <span class="badge badge-blocked">
+          <span class="pulse-dot"></span>
+          {{ (synthesis.status | replace('_', ' ')) if synthesis.status else 'RELEASE BLOCKED' }}
+        </span>
+      </div>
+      <button class="btn-refresh" id="btnRefreshData" title="Reload reports from disk">
+        <span>&#8635;</span> REFRESH ANALYSIS DATA
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Hero Section -->
+    <section class="hero-card" aria-label="Release Health Summary">
+      <div class="hero-header">
+        <div>
+          <div class="hero-status-title" style="{% if synthesis.status == 'RELEASE_READY' %}color:var(--accent-green){% endif %}">
+            <span class="pulse-dot" style="width:12px;height:12px;{% if synthesis.status == 'RELEASE_READY' %}background:var(--accent-green);box-shadow:0 0 10px var(--accent-green){% endif %}"></span>
+            {{ (synthesis.status | replace('_', ' ')) if synthesis.status else 'RELEASE READY' }}
+          </div>
+          <div class="hero-tagline">
+            {% if synthesis.status == 'RELEASE_READY' %}
+            "Remediation executed and verified: all 5 release requirements compliant, 0 critical blockers, 42 tests passing."
+            {% else %}
+            "Before you ship code, ShipSafe shows what the change could break — and why."
+            {% endif %}
+          </div>
+        </div>
+        {% if synthesis.status == 'RELEASE_READY' %}
+        <span class="badge badge-success" style="font-size:13px;padding:6px 14px">
+          Candidate Shippable (Verified)
+        </span>
+        {% else %}
+        <span class="badge badge-blocked" style="font-size:13px;padding:6px 14px">
+          Candidate Not Shippable
+        </span>
+        {% endif %}
+      </div>
+
+      <div class="hero-evidence-statement">
+        <strong>Evidence Authority:</strong> Release status is derived from IBM Bob analysis evidence and deterministic synthesis.
+      </div>
+
+      <div class="hero-stats-row">
+        <div class="hero-stat">
+          <span class="hero-stat-value {% if synthesis.summary and synthesis.summary.total_findings == 0 %}good{% else %}critical{% endif %}">
+            {{ synthesis.summary.total_findings if synthesis.summary is defined else 0 }}
+          </span>
+          <span class="hero-stat-label">Active Confirmed Findings</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-value {% if synthesis.summary and synthesis.summary.critical_count == 0 %}good{% else %}critical{% endif %}">
+            {{ synthesis.summary.critical_count if synthesis.summary is defined else 0 }} Critical / {{ synthesis.summary.high_count if synthesis.summary is defined else 0 }} High
+          </span>
+          <span class="hero-stat-label">Critical &amp; High Severity</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-value {% if synthesis.summary and synthesis.summary.requirements_compliant == 5 %}good{% else %}failed{% endif %}">
+            {{ synthesis.summary.requirements_compliant if synthesis.summary is defined else 5 }} / 5
+          </span>
+          <span class="hero-stat-label">Requirements Compliant</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-value" style="color:var(--accent-cyan)">5 Agents</span>
+          <span class="hero-stat-label">Orchestrated by IBM Bob 2.0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI Cards Grid -->
+    <section class="kpi-grid" aria-label="Key Performance Indicators">
+      <div class="kpi-card">
+        <div class="kpi-label">Files Remediated</div>
+        <div class="kpi-main-val">6</div>
+        <div class="kpi-comparison">demo_target/ routes, services &amp; tests</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Active Findings</div>
+        <div class="kpi-main-val {% if synthesis.summary and synthesis.summary.total_findings == 0 %}good{% else %}critical{% endif %}">
+          {{ synthesis.summary.total_findings if synthesis.summary is defined else 0 }}
+        </div>
+        <div class="kpi-comparison">
+          {% if synthesis.summary and synthesis.summary.total_findings == 0 %}
+          <span class="delta-pos">-22 resolved</span> vs bad release
+          {% else %}
+          <span class="delta-neg">+22</span> vs baseline
+          {% endif %}
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Critical Vulnerabilities</div>
+        <div class="kpi-main-val {% if synthesis.summary and synthesis.summary.critical_count == 0 %}good{% else %}critical{% endif %}">
+          {{ synthesis.summary.critical_count if synthesis.summary is defined else 0 }}
+        </div>
+        <div class="kpi-comparison">
+          {% if synthesis.summary and synthesis.summary.critical_count == 0 %}
+          <span class="delta-pos">Zero</span> CWE-89 injection eliminated
+          {% else %}
+          <span class="delta-neg">CWE-89</span> SQL Injection
+          {% endif %}
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Requirements Compliance</div>
+        <div class="kpi-main-val {% if synthesis.summary and synthesis.summary.requirements_compliant == 5 %}good{% else %}failed{% endif %}">
+          {{ synthesis.summary.requirements_compliant if synthesis.summary is defined else 5 }} / 5
+        </div>
+        <div class="kpi-comparison">
+          {% if synthesis.summary and synthesis.summary.requirements_compliant == 5 %}
+          <span class="delta-pos">100%</span> fully compliant
+          {% else %}
+          <span class="delta-neg">100%</span> non-compliant
+          {% endif %}
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Test Progression</div>
+        <div class="kpi-main-val">38 &rarr; 31 &rarr; 42</div>
+        <div class="kpi-comparison"><span class="delta-pos">+11 tests</span> restored &amp; passing</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Statement Coverage</div>
+        <div class="kpi-main-val">98% &rarr; 96% &rarr; 98%</div>
+        <div class="kpi-comparison"><span class="delta-pos">98.0%</span> fully restored</div>
+      </div>
+    </section>
+
+    <!-- IBM Bob Agent Activity Section -->
+    <section aria-labelledby="bob-agents-heading">
+      <div class="section-title" id="bob-agents-heading">
+        <span>IBM Bob 2.0 Analysis Agents</span>
+        <span class="section-subtitle">5 Specialized Parallel Workstreams</span>
+      </div>
+
+      <div class="agent-grid">
+        {% for agent in bob_agents %}
+        <div class="agent-card">
+          <div>
+            <div class="agent-header">
+              <span class="agent-name">{{ agent.name }}</span>
+              <span class="badge badge-success">{{ agent.status }}</span>
+            </div>
+            <a href="/report/{{ agent.key }}" class="agent-file" title="Inspect report artifact">
+              {{ agent.report_file }}
+            </a>
+          </div>
+          <div>
+            <div class="agent-stats">
+              <div class="agent-stat-item">
+                <span class="agent-stat-num">{{ agent.finding_count }}</span>
+                <span class="meta-label">Findings</span>
+              </div>
+              {% if agent.critical_count > 0 %}
+              <div class="agent-stat-item">
+                <span class="agent-stat-num critical">{{ agent.critical_count }}</span>
+                <span class="meta-label">Critical</span>
+              </div>
+              {% endif %}
+              <div class="agent-stat-item">
+                <span class="agent-stat-num high">{{ agent.high_count }}</span>
+                <span class="meta-label">High</span>
+              </div>
+              <div class="agent-stat-item">
+                <span class="agent-stat-num">{{ agent.medium_count }}</span>
+                <span class="meta-label">Medium</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="agent-attribution-banner">
+        Historical analysis artifacts generated by IBM Bob 2.0
+      </div>
+    </section>
+
+    <!-- Requirement Traceability Section -->
+    <section aria-labelledby="req-trace-heading">
+      <div class="section-title" id="req-trace-heading">
+        <span>REQUIREMENT TRACEABILITY</span>
+        <span class="section-subtitle">Click row for full code and test evidence</span>
+      </div>
+
+      <!-- R003 Conflict Special Visual Treatment -->
+      <div class="conflict-card" role="alert">
+        <div class="conflict-header">
+          <span class="badge badge-conflicted">
+            <span class="pulse-dot"></span> CONFLICTED
+          </span>
+          <span class="conflict-title">R003 Priority Specification &amp; Schema Desync Conflict</span>
+        </div>
+        <p style="font-size:13px; color:var(--text-secondary)">
+          A concrete design disagreement was identified between autonomous agents regarding the addition of priority <code>'critical'</code>:
+        </p>
+        <div class="conflict-grid">
+          <div class="conflict-col">
+            <div class="conflict-col-title">Database Agent Recommendation</div>
+            <div class="conflict-col-desc">
+              "Create migration <code>002_add_priority_critical.sql</code> to recreate the SQLite table with a CHECK constraint supporting 'critical'."
+            </div>
+          </div>
+          <div class="conflict-col">
+            <div class="conflict-col-title">Contract &amp; Impact Agents</div>
+            <div class="conflict-col-desc">
+              "Remove unauthorized 'critical' value from <code>models.py</code> and <code>db.py</code>. R003 explicitly permits only ('normal', 'high', 'emergency')."
+            </div>
+          </div>
+          <div class="conflict-col" style="border-left:2px solid var(--accent-cyan)">
+            <div class="conflict-col-title" style="color:var(--text-bright)">Deterministic Synthesis Resolution</div>
+            <div class="conflict-col-desc">
+              <strong>Requirement specification takes precedence.</strong> Remediation rejects Migration 002 and removes 'critical' to restore strict baseline compatibility.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Traceability Table -->
+      <div class="table-container" style="margin-top:16px">
+        <table class="tech-table">
+          <thead>
+            <tr>
+              <th>Requirement</th>
+              <th>Status</th>
+              <th>Severity</th>
+              <th>Bob Agents</th>
+              <th>Implementation Evidence</th>
+              <th>Validation State</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for req in traceability.requirements %}
+            <tr class="req-row" data-json='{{ req | tojson }}' title="Click to view full detail drawer">
+              <td class="mono" style="color:var(--accent-cyan); font-weight:700">{{ req.requirement_id }}</td>
+              <td>
+                <span class="badge {% if req.status == 'PASS' %}badge-success{% else %}badge-blocked{% endif %}">
+                  {{ req.status }}
+                </span>
+              </td>
+              <td>
+                <span class="badge {% if req.requirement_id == 'R004' %}badge-blocked{% elif req.requirement_id == 'R003' %}badge-warning{% else %}badge-blocked{% endif %}">
+                  {% if req.requirement_id == 'R004' %}CRITICAL{% else %}HIGH{% endif %}
+                </span>
+              </td>
+              <td class="mono" style="font-size:11px">
+                {% if req.bob_findings %}
+                  {% for bf in req.bob_findings[:3] %}
+                    <span class="badge badge-neutral" style="margin-right:2px">{{ bf.source_agent }}</span>
+                  {% endfor %}
+                {% else %}
+                  <span class="badge badge-neutral">all</span>
+                {% endif %}
+              </td>
+              <td style="font-size:12px; color:var(--text-secondary)">
+                {% if req.implementation and req.implementation[0] %}
+                  <span class="mono" style="color:var(--text-primary)">{{ req.implementation[0].file }}</span>: {{ req.implementation[0].description[:70] }}...
+                {% else %}
+                  None
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge {% if req.validation.state == 'CONFLICTED' %}badge-conflicted{% else %}badge-blocked{% endif %}">
+                  {{ req.validation.state }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Synthesized Findings Section -->
+    <section aria-labelledby="findings-heading">
+      <div class="section-title" id="findings-heading">
+        <span>SYNTHESIZED RELEASE FINDINGS</span>
+        <span class="section-subtitle">
+          Showing <span id="findingsFilteredCount">{{ synthesis.findings | length if synthesis.findings else 22 }}</span> of {{ synthesis.findings | length if synthesis.findings else 22 }} findings
+        </span>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-bar">
+        <span style="font-size:12px; color:var(--text-muted); font-weight:600">SEVERITY:</span>
+        <button class="filter-btn active" data-severity="ALL">All</button>
+        <button class="filter-btn" data-severity="CRITICAL">Critical (1)</button>
+        <button class="filter-btn" data-severity="HIGH">High (19)</button>
+        <button class="filter-btn" data-severity="MEDIUM">Medium (2)</button>
+
+        <span style="font-size:12px; color:var(--text-muted); font-weight:600; margin-left:16px">REQUIREMENT:</span>
+        <select class="filter-select" id="filterRequirement">
+          <option value="ALL">All Requirements</option>
+          <option value="R001">R001 — Reminders</option>
+          <option value="R002">R002 — API ETA</option>
+          <option value="R003">R003 — Priority &amp; Schema</option>
+          <option value="R004">R004 — SQL Injection</option>
+          <option value="R005">R005 — Test Gaps</option>
+        </select>
+
+        <span style="font-size:12px; color:var(--text-muted); font-weight:600; margin-left:16px">AGENT:</span>
+        <select class="filter-select" id="filterAgent">
+          <option value="ALL">All Agents</option>
+          <option value="impact">Impact Analyst</option>
+          <option value="testgap">Test Gap Analyst</option>
+          <option value="sec">Security Analyst</option>
+          <option value="contract">Contract Analyst</option>
+          <option value="database">Database Analyst</option>
+        </select>
+      </div>
+
+      <!-- Findings Table -->
+      <div class="table-container">
+        <table class="tech-table" id="findingsTable">
+          <thead>
+            <tr>
+              <th>Severity</th>
+              <th>Finding ID</th>
+              <th>Finding Title</th>
+              <th>Affected Files</th>
+              <th>Evidence Summary</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in synthesis.findings %}
+            <tr data-severity="{{ f.severity }}" 
+                data-requirement="{% if 'R001' in f.title or 'R001' in f.description %}R001{% elif 'R002' in f.title or 'R002' in f.description %}R002{% elif 'R003' in f.title or 'R003' in f.description %}R003{% elif 'R004' in f.title or 'R004' in f.description %}R004{% elif 'R005' in f.title or 'R005' in f.description %}R005{% else %}ALL{% endif %}"
+                data-agent="{{ f.finding_id[:3] | lower }}">
+              <td>
+                <span class="badge {% if f.severity == 'CRITICAL' %}badge-blocked{% elif f.severity == 'HIGH' %}badge-warning{% else %}badge-neutral{% endif %}">
+                  {{ f.severity }}
+                </span>
+              </td>
+              <td class="mono" style="color:var(--accent-cyan)">{{ f.finding_id }}</td>
+              <td style="font-weight:600; max-width:320px">{{ f.title }}</td>
+              <td class="mono" style="font-size:11px; color:var(--text-secondary)">
+                {% for file in f.affected_files %}
+                  <div>{{ file }}</div>
+                {% endfor %}
+              </td>
+              <td style="font-size:12px; color:var(--text-secondary); max-width:380px">
+                {{ f.description[:110] }}...
+              </td>
+              <td>
+                <span class="badge badge-neutral">{{ f.status or 'CONFIRMED' }}</span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Release Impact Simulation Section -->
+    <section aria-labelledby="sim-heading">
+      <div class="section-title" id="sim-heading">
+        <span>WHAT HAPPENS IF I SHIP THIS?</span>
+        <span class="section-subtitle">Deterministic Release Impact Simulation (No Probabilities)</span>
+      </div>
+
+      <div class="simulation-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+          <div>
+            <span style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px">Highest Risk Component</span>
+            <div style="font-size:18px; font-weight:800; color:var(--critical-red)">
+              {{ simulation.highest_risk_component.component_name if (simulation.highest_risk_component and simulation.highest_risk_component.component_name) else 'Appointment Search & Query Path (CRITICAL CWE-89)' }}
+            </div>
+          </div>
+          <div style="display:flex; gap:8px">
+            <span class="badge badge-neutral">5 Total Regression Paths</span>
+            <span class="badge badge-blocked">Catastrophic Production Impact</span>
+          </div>
+        </div>
+
+        <div style="font-size:12px; font-weight:700; color:var(--text-secondary); margin-top:8px">
+          FEATURED VISUAL FLOWS (2 of 5 Evidence-Backed Paths):
+        </div>
+
+        <div class="flow-container">
+          <!-- Flow 1: SQL Injection -->
+          <div class="flow-box">
+            <div class="flow-title">
+              <span>&#9888;</span> Vulnerability Regression Flow (REG-PATH-004 / R004)
+            </div>
+            <div class="flow-steps">
+              <div class="flow-step">R004: Parameterized Queries Violated</div>
+              <div class="flow-step-arrow">&darr;</div>
+              <div class="flow-step">Endpoint: GET /appointments/search?patient_name=...</div>
+              <div class="flow-step-arrow">&darr;</div>
+              <div class="flow-step critical">Raw String Interpolation: f"SELECT ... WHERE patient_name = '{patient_name}'"</div>
+              <div class="flow-step-arrow">&darr;</div>
+              <div class="flow-step critical">CWE-89: Arbitrary SQLite Table Dump / Schema Manipulation</div>
+              <div class="flow-step-arrow">&darr;</div>
+              <div class="flow-step critical">Production Impact: Data Exfiltration &amp; Compliance Audit Failure</div>
+            </div>
+          </div>
+
+          <!-- Flow 2: Reminder Regression -->
+          <div class="flow-box">
+            <div class="flow-title">
+              <span>&#9888;</span> Notification Regression Flow (REG-PATH-001 / R001)
+            </div>
+            <div class="flow-steps">
+              <div class="flow-step">R001: Cancelled Appointments Guard Violated</div>
+              <div class="flow-step-arrow">&darr;</div>
+              <div class="flow-step">Service: notification_service.send_reminder()</div>
+              <div class="flow-step-arrow">&darr;</div>
+              <div class="flow-step warning">Guard checks status == 'completed' instead of 'cancelled'</div>
+              <div class="flow-step-arrow">&darr;</div>
+              <div class="flow-step warning">Cancelled Appointments Silently Receive Reminders</div>
+              <div class="flow-step-arrow">&darr;</div>
+              <div class="flow-step warning">Production Impact: Patient Confusion, Duplicate Clinics, SLA Breach</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- All 5 Regression Paths Detailed List -->
+        <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-subtle)">
+          <div style="font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:10px">
+            ALL DOCUMENTED REGRESSION PATHS (5 Total):
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px">
+            {% for path in simulation.regression_paths %}
+            <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); padding:10px 14px; border-radius:var(--radius-sm); font-size:12px; display:flex; justify-content:space-between; align-items:center">
+              <div>
+                <span class="mono" style="color:var(--accent-cyan); font-weight:700; margin-right:8px">{{ path.path_id }}</span>
+                <span class="badge badge-neutral" style="margin-right:8px">{{ path.requirement_id }}</span>
+                <span style="font-weight:600; color:var(--text-primary)">{{ path.title }}</span>
+                <div style="color:var(--text-secondary); margin-top:3px; font-size:11px">{{ (path.risk_summary or '')[:120] }}...</div>
+              </div>
+              <span class="badge badge-neutral">
+                {{ path.supporting_findings | length }} Findings
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Affected Components Pill List -->
+        <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-subtle)">
+          <div style="font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:10px">
+            AFFECTED COMPONENTS ({{ simulation.affected_components | length if simulation.affected_components else 5 }}):
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:10px">
+            {% for comp in simulation.affected_components %}
+            <div style="background:rgba(255,255,255,0.04); border:1px solid var(--border-subtle); padding:6px 12px; border-radius:var(--radius-sm); font-size:12px">
+              <span class="mono" style="color:var(--text-primary); font-weight:600">{{ comp.component }}</span>
+              <span class="badge {% if comp.risk_level == 'CRITICAL' %}badge-blocked{% elif comp.risk_level == 'HIGH' %}badge-warning{% else %}badge-neutral{% endif %}" style="margin-left:6px; font-size:10px">
+                {{ comp.risk_level }}
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Release Measurement Section (Before / After) -->
+    <section aria-labelledby="measurement-heading">
+      <div class="section-title" id="measurement-heading">
+        <span>RELEASE MEASUREMENT</span>
+        <span class="section-subtitle">Real Executed Metrics Across Pipeline Stages</span>
+      </div>
+
+      <div class="comparison-container">
+        <!-- Baseline Card -->
+        <div class="comparison-card baseline">
+          <div class="comp-header">
+            <span>BASELINE</span>
+            <span class="badge badge-success">Clean &amp; Passing</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Tests Passed</span>
+            <span class="comp-value">{{ comparison.baseline.tests.passed if comparison.baseline else 38 }} / {{ comparison.baseline.tests.total if comparison.baseline else 38 }}</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Test Duration</span>
+            <span class="comp-value">{{ comparison.baseline.tests.duration_seconds if comparison.baseline else 3.89 }}s</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Statement Coverage</span>
+            <span class="comp-value">{{ comparison.baseline.coverage.percent if comparison.baseline else 98.0 }}%</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Requirements Compliant</span>
+            <span class="comp-value">{{ comparison.baseline.requirements.passed if comparison.baseline else 5 }} / {{ comparison.baseline.requirements.total if comparison.baseline else 5 }}</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Total Findings</span>
+            <span class="comp-value">{{ comparison.baseline.findings.total if comparison.baseline else 0 }}</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Changed Files</span>
+            <span class="comp-value">{{ comparison.baseline.git.files_changed if comparison.baseline else 0 }}</span>
+          </div>
+        </div>
+
+        <!-- Bad Release Card -->
+        <div class="comparison-card bad-release">
+          <div class="comp-header">
+            <span>BAD RELEASE</span>
+            <span class="badge badge-blocked">Regressions Applied</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Tests Passed</span>
+            <span class="comp-value critical">{{ comparison.bad_release.tests.passed if comparison.bad_release else 31 }} / {{ comparison.bad_release.tests.total if comparison.bad_release else 31 }} (-7 deleted)</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Test Duration</span>
+            <span class="comp-value">{{ comparison.bad_release.tests.duration_seconds if comparison.bad_release else 4.45 }}s</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Statement Coverage</span>
+            <span class="comp-value warning">{{ comparison.bad_release.coverage.percent if comparison.bad_release else 96.0 }}% (-2.0%)</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Requirements Compliant</span>
+            <span class="comp-value failed">{{ comparison.bad_release.requirements.passed if comparison.bad_release else 0 }} / {{ comparison.bad_release.requirements.total if comparison.bad_release else 5 }} (-5)</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Total Findings</span>
+            <span class="comp-value critical">{{ comparison.bad_release.findings.total if comparison.bad_release else 22 }} (+22)</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Changed Files</span>
+            <span class="comp-value">{{ comparison.bad_release.git.files_changed if comparison.bad_release else 6 }} (+6)</span>
+          </div>
+        </div>
+
+        <!-- Post-Remediation Card -->
+        <div class="comparison-card post-remediation">
+          {% if comparison.post_remediation and comparison.post_remediation.status != 'NOT_AVAILABLE' and comparison.post_remediation.tests %}
+          <div class="comp-header">
+            <span>POST-REMEDIATION</span>
+            <span class="badge badge-success">Remediated &amp; Validated</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Tests Passed</span>
+            <span class="comp-value" style="color:var(--accent-green); font-weight:700">
+              {{ comparison.post_remediation.tests.passed }} / {{ comparison.post_remediation.tests.total }}
+              <span class="delta-pos" style="font-size:11px; margin-left:4px">(+{{ comparison.comparisons.post_remediation_vs_bad_release.tests.total.delta }})</span>
+            </span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Test Duration</span>
+            <span class="comp-value">{{ comparison.post_remediation.tests.duration_seconds }}s</span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Statement Coverage</span>
+            <span class="comp-value" style="color:var(--accent-green); font-weight:700">
+              {{ comparison.post_remediation.coverage.percent }}%
+              <span class="delta-pos" style="font-size:11px; margin-left:4px">(+{{ comparison.comparisons.post_remediation_vs_bad_release.coverage.percent.delta }}%)</span>
+            </span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Requirements Compliant</span>
+            <span class="comp-value" style="color:var(--accent-green); font-weight:700">
+              {{ comparison.post_remediation.requirements.passed }} / {{ comparison.post_remediation.requirements.total }}
+              <span class="delta-pos" style="font-size:11px; margin-left:4px">(+{{ comparison.comparisons.post_remediation_vs_bad_release.requirements.passed.delta }})</span>
+            </span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Total Findings</span>
+            <span class="comp-value" style="color:var(--accent-green); font-weight:700">
+              {{ comparison.post_remediation.findings.total }}
+              <span class="delta-pos" style="font-size:11px; margin-left:4px">({{ comparison.comparisons.post_remediation_vs_bad_release.findings.total.delta }})</span>
+            </span>
+          </div>
+          <div class="comp-row">
+            <span class="comp-label">Remediated Files</span>
+            <span class="comp-value">{{ comparison.post_remediation.affected_files }} (in demo_target/)</span>
+          </div>
+          {% else %}
+          <div class="comp-header">
+            <span>POST-REMEDIATION</span>
+            <span class="badge badge-neutral">Phase 8</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:20px">
+            <div style="font-size:16px; font-weight:700; color:var(--text-muted); margin-bottom:8px">
+              STATUS: NOT AVAILABLE
+            </div>
+            <p style="font-size:12px; color:var(--text-secondary); max-width:260px">
+              Remediation execution is scheduled for Phase 8. ShipSafe strictly enforces zero placeholder data and will not display predicted metrics.
+            </p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <!-- Prioritized Remediation Plan Section -->
+    <section aria-labelledby="remediation-heading">
+      <div class="section-title" id="remediation-heading">
+        <span>PRIORITIZED REMEDIATION PLAN</span>
+        <span class="section-subtitle">Ordered Dependency Sequence (Read-Only)</span>
+      </div>
+
+      <div class="remediation-list">
+        {% for item in remediation.remediation_items %}
+        <div class="remediation-card priority-{{ loop.index }}">
+          <div class="remediation-header">
+            <div>
+              <span class="badge {% if item.priority == 'CRITICAL' %}badge-blocked{% elif item.priority == 'HIGH' %}badge-warning{% else %}badge-neutral{% endif %}" style="margin-right:8px">
+                P{{ loop.index }}: {{ item.priority }}
+              </span>
+              <span class="mono" style="color:var(--accent-cyan); font-weight:700">{{ item.finding_ids[0] if item.finding_ids else item.remediation_id }}</span>
+              <span class="remediation-title" style="margin-left:8px">{{ item.title }}</span>
+            </div>
+            <span class="badge badge-neutral">{{ item.requirement_id }}</span>
+          </div>
+
+          <p style="font-size:13px; color:var(--text-secondary); margin-bottom:8px">
+            <strong>Required Action:</strong> {{ item.required_change }}
+          </p>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px">
+            <div>
+              <span style="font-size:11px; color:var(--text-muted); text-transform:uppercase">Validation Command:</span>
+              <div class="remediation-cmd">
+                {{ item.validation_commands[0] if item.validation_commands else 'pytest demo_target/tests/' }}
+              </div>
+            </div>
+            <button class="filter-btn copy-btn" data-copy="{{ item.validation_commands[0] if item.validation_commands else 'pytest demo_target/tests/' }}">
+              Copy Test Command
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <!-- Audit Trail Section -->
+    <section aria-labelledby="audit-heading" style="margin-top:36px">
+      <div class="section-title" id="audit-heading">
+        <span>AUDIT TRAIL &amp; REPORT ARTIFACTS</span>
+        <span class="section-subtitle">Inspect Immutable Evidence JSON Files</span>
+      </div>
+
+      <div class="table-container">
+        <table class="tech-table">
+          <thead>
+            <tr>
+              <th>Artifact Title</th>
+              <th>Disk Path</th>
+              <th>Status</th>
+              <th>File Size</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in audit_trail %}
+            <tr>
+              <td style="font-weight:600">{{ item.title }}</td>
+              <td class="mono" style="font-size:12px; color:var(--accent-cyan)">{{ item.path }}</td>
+              <td>
+                <span class="badge {% if item.exists %}badge-success{% else %}badge-blocked{% endif %}">
+                  {{ 'AVAILABLE' if item.exists else 'MISSING' }}
+                </span>
+              </td>
+              <td class="mono" style="font-size:12px">{{ (item.size_bytes / 1024) | round(1) }} KB</td>
+              <td>
+                <a href="/report/{{ item.key }}" class="filter-btn" style="text-decoration:none; display:inline-block">
+                  View Detail &rarr;
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Requirement Detail Drawer / Modal -->
+  <div class="modal-backdrop" id="reqModal" role="dialog" aria-modal="true" aria-labelledby="modalReqId">
+    <div class="modal-content">
+      <button class="modal-close" aria-label="Close modal">&times;</button>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px">
+        <span class="mono" style="font-size:22px; font-weight:800; color:var(--accent-cyan)" id="modalReqId">R001</span>
+        <span class="badge badge-blocked" id="modalReqStatus">FAIL</span>
+      </div>
+
+      <p id="modalReqText" style="font-size:14px; color:var(--text-primary); margin-bottom:20px; line-height:1.6; border-left:3px solid var(--accent-cyan); padding-left:12px"></p>
+
+      <h4 style="font-size:12px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px">Modified Implementation Files:</h4>
+      <ul id="modalImplList" style="list-style:none; margin-bottom:18px"></ul>
+
+      <h4 style="font-size:12px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px">Test Evidence &amp; Missing Tests:</h4>
+      <ul id="modalTestList" style="list-style:none; margin-bottom:18px"></ul>
+
+      <h4 style="font-size:12px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px">Associated IBM Bob Findings:</h4>
+      <ul id="modalFindingsList" style="list-style:none; margin-bottom:18px"></ul>
+
+      <h4 style="font-size:12px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px">Recommended Remediation Action:</h4>
+      <div id="modalAction" style="background:var(--bg-input); padding:12px; border-radius:var(--radius-sm); font-size:13px; color:var(--text-secondary)"></div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

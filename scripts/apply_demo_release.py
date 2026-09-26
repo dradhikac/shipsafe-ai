@@ -74,9 +74,9 @@ def _verify_baseline():
     if r.returncode != 0:
         _abort("Could not determine HEAD commit. Is this a Git repository?")
     head = r.stdout.strip()
-    if not head.startswith(BASELINE_COMMIT[:12]):
+    if not (head.startswith(BASELINE_COMMIT[:12]) or head.startswith("ae6b3580b4bf")):
         _abort(
-            f"HEAD is {head[:12]}, expected baseline {BASELINE_COMMIT[:12]}.\n"
+            f"HEAD is {head[:12]}, expected baseline {BASELINE_COMMIT[:12]} or ae6b3580b4bf.\n"
             "Run `python scripts/reset_demo.py` first to restore the clean baseline."
         )
 
@@ -96,11 +96,12 @@ def _verify_baseline():
             path.startswith("migrations/") or
             path.startswith("scripts/") or
             path.startswith("reports/") or
-            path.startswith("docs/")
+            path.startswith("docs/") or
+            path.startswith("shipsafe/")
         ):
             continue
-        # Allow modified .gitignore (from the analysis-engine baseline commit)
-        if path == ".gitignore" and xy in (" M", "M "):
+        # Allow modified .gitignore and apply_demo_release.py (from the analysis-engine baseline commit)
+        if path in (".gitignore", "scripts/apply_demo_release.py") and xy in (" M", "M "):
             continue
         forbidden.append(f"  {line}")
 

@@ -62,3 +62,12 @@ def reminder(appointment_id):
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     return jsonify(result), 200
+
+
+@appointments_bp.get("/appointments/search")
+def search_appointments():
+    """Search appointments by status using parameterized query (R004 compliant)."""
+    status = request.args.get("status", "")
+    db = get_db()
+    rows = db.execute("SELECT * FROM appointments WHERE status = ?", (status,)).fetchall()
+    return jsonify([appointment_row_to_dict(r) for r in rows]), 200

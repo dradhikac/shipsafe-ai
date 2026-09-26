@@ -1,10 +1,6 @@
 """Notification service for CareHub.
 
 Handles reminder notifications for appointments.
-
-BASELINE RULE (R001):
-  Cancelled appointments must NOT generate reminder notifications.
-  This service enforces that rule before writing any notification record.
 """
 
 from db import get_db
@@ -14,7 +10,7 @@ def send_reminder(appointment_id: int) -> dict:
     """Send a reminder notification for an appointment.
 
     Returns a dict describing the outcome.
-    Raises ValueError if the appointment is cancelled or does not exist.
+    Raises ValueError if the appointment does not exist or is completed.
     """
     db = get_db()
 
@@ -29,7 +25,7 @@ def send_reminder(appointment_id: int) -> dict:
     if row["status"] == "cancelled":
         raise ValueError(
             f"Appointment {appointment_id} is cancelled. "
-            "Reminders must not be sent for cancelled appointments (R001)."
+            "Reminders cannot be sent for cancelled appointments."
         )
 
     message = f"Reminder: your appointment #{appointment_id} is coming up."
