@@ -8,8 +8,11 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy.orm import Session
 
-# Add current workspace to path
+# Add current workspace to path and invalidate cached shipsafe modules in long-lived Streamlit process
 sys.path.insert(0, os.path.abspath("."))
+for _mod in list(sys.modules.keys()):
+    if _mod.startswith("shipsafe.database") or _mod.startswith("shipsafe.core"):
+        sys.modules.pop(_mod, None)
 
 from shipsafe.database import (
     SessionLocal,

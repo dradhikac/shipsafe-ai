@@ -131,13 +131,14 @@ class AnalysisWorker:
             )
 
             # 2. Parallel Specialist Agent Execution
-            print("[ShipSafe Worker] Launching 5 parallel specialist agents via Grok provider...")
+            active_provider = get_ai_provider()
+            print(f"[ShipSafe Worker] Launching 5 parallel specialist agents via {type(active_provider).__name__}...")
             agents = {
-                "impact": ChangeImpactAgent(self.provider),
-                "test_gap": TestGapAgent(self.provider),
-                "security": SecurityAgent(self.provider),
-                "contract": ContractAgent(self.provider),
-                "database": DatabaseAgent(self.provider),
+                "impact": ChangeImpactAgent(active_provider),
+                "test_gap": TestGapAgent(active_provider),
+                "security": SecurityAgent(active_provider),
+                "contract": ContractAgent(active_provider),
+                "database": DatabaseAgent(active_provider),
             }
 
             async def run_single_agent(name, agent):
