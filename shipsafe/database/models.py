@@ -15,14 +15,33 @@ class Repository(Base):
     __tablename__ = "repositories"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), unique=True, index=True, nullable=False)
-    repo_url = Column(String(1024), nullable=False)
+    provider = Column(String(50), default="github", nullable=False)
+    owner = Column(String(255), nullable=True)
+    name = Column(String(255), nullable=False)
+    repo_url = Column(String(1024), unique=True, index=True, nullable=False)
     local_path = Column(String(1024), nullable=True)
     default_branch = Column(String(100), default="main", nullable=False)
-    is_active = Column(Boolean, default=True)
+    selected_branch = Column(String(100), default="main", nullable=False)
+    available_branches = Column(JSON, default=list)
+    monitoring_enabled = Column(Boolean, default=False)
+    latest_commit_sha = Column(String(100), nullable=True)
+    files_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    last_event_at = Column(DateTime, nullable=True)
+    last_analysis_id = Column(Integer, nullable=True)
+    is_active = Column(Boolean, default=True)
 
     runs = relationship("AnalysisRun", back_populates="repository", cascade="all, delete-orphan")
+
+    @property
+    def url(self) -> str:
+        return self.repo_url
+
+    @property
+    def display_name(self) -> str:
+        return f"{self.owner}/{self.name}" if self.owner else self.name
+
 
 
 class WebhookEvent(Base):

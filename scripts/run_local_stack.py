@@ -11,9 +11,10 @@ def main():
     print("  ShipSafe AI V2 — Local Stack Launcher")
     print("=" * 60)
 
-    # 1. Initialize and seed DB
-    print("\n[Step 1/3] Initializing and seeding local database...")
-    subprocess.run([sys.executable, "scripts/seed_demo.py"], check=True)
+    # 1. Initialize clean DB without seeded repositories
+    print("\n[Step 1/3] Initializing clean database...")
+    from shipsafe.database import init_db
+    init_db()
 
     print("\n[Step 2/3] Stack components:")
     print("  1. FastAPI Webhook API: uvicorn api.app:app --port 8000")
@@ -25,7 +26,7 @@ def main():
     print("   Terminal 2: python -m worker.worker")
     print("   Terminal 3: streamlit run streamlit_app.py --server.port 8501")
     print("\nTo simulate a GitHub webhook push:")
-    print("   python scripts/simulate_webhook.py --event push --repo carehub-appointment-service")
+    print("   python scripts/simulate_webhook.py --event push --repo <your-connected-repo>")
     print("=" * 60)
 
 

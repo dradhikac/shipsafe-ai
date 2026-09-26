@@ -89,9 +89,9 @@ def send_webhook(url: str, event_type: str, payload: dict, secret: str = ""):
 def main():
     parser = argparse.ArgumentParser(description="Simulate GitHub push or pull_request webhooks locally.")
     parser.add_argument("--event", choices=["push", "pull_request"], default="push", help="GitHub event type")
-    parser.add_argument("--repo", default="carehub-appointment-service", help="Repository name")
-    parser.add_argument("--path", default="examples/carehub", help="Local directory path of target repository")
-    parser.add_argument("--branch", default="feature/billing-v2", help="Branch name")
+    parser.add_argument("--repo", default="my-service", help="Repository name")
+    parser.add_argument("--path", default=".", help="Local directory path of target repository")
+    parser.add_argument("--branch", default="main", help="Branch name")
     parser.add_argument("--url", default="http://localhost:8000/webhooks/github", help="FastAPI webhook endpoint URL")
     parser.add_argument("--secret", default=os.environ.get("GITHUB_WEBHOOK_SECRET", ""), help="Webhook HMAC secret")
 

@@ -101,11 +101,23 @@ class AnalysisWorker:
             # Determine local filesystem path for the repository
             target_dir = repo_record.local_path
             if not target_dir or not os.path.isdir(target_dir):
-                # Fallback to example repo or current workspace if not specified
-                if os.path.isdir("examples/carehub"):
-                    target_dir = os.path.abspath("examples/carehub")
-                else:
-                    target_dir = os.path.abspath(".")
+                if repo_record.repo_url:
+                    from shipsafe.core.repo_manager import RepositoryManager
+                    RepositoryManager.connect_repository(db, repo_record.repo_url, branch=run.branch)
+                    target_dir = repo_record.local_path
+                if not target_dir or not os.path.isdir(target_dir):
+                    raise FileNotFoundError(f"Local workspace for repository '{repo_record.name}' not found at '{target_dir}'.")
+
+            # Ensure git checkout to targeted branch
+            from shipsafe.core.git import GitController
+            git_ctrl = GitController(target_dir)
+            if git_ctrl.is_git_repo():
+                target_b = run.branch or repo_record.selected_branch or repo_record.default_branch
+                git_ctrl.checkout(target_b)
+                if not run.head_sha:
+                    run.head_sha = git_ctrl.get_head_sha()
+                repo_record.latest_commit_sha = run.head_sha
+                repo_record.selected_branch = target_b
 
             core_repo = Repository(root_dir=target_dir, name=repo_record.name)
 
@@ -200,6 +212,9 @@ class AnalysisWorker:
             run.completed_at = datetime.datetime.utcnow()
             run.duration_seconds = round(total_duration, 2)
             run.summary = synthesis["summary"]
+            repo_record.last_analysis_id = run.id
+            repo_record.last_event_at = run.completed_at
+            repo_record.updated_at = datetime.datetime.utcnow()
 
             db.commit()
             print(f"[ShipSafe Worker] Completed run #{run.id} in {run.duration_seconds}s. Gate: {run.release_status}")

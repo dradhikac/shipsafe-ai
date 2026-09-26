@@ -22,6 +22,7 @@ from shipsafe.database import (
     RequirementCheck,
     RemediationAction,
 )
+from shipsafe.core.repo_manager import RepositoryManager
 from worker.worker import AnalysisWorker
 import asyncio
 
@@ -115,6 +116,15 @@ st.markdown("""
         margin-bottom: 12px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.03);
     }
+    .empty-state-box {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 36px 24px;
+        text-align: center;
+        margin-top: 16px;
+        margin-bottom: 24px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -125,16 +135,52 @@ def get_db_session():
 
 
 def render_status_badge(status_str: str) -> str:
-    s = (status_str or "PENDING").upper()
+    s = (status_str or "NOT ANALYZED").upper()
     if s == "READY":
-        return f'<span class="badge-ready">✓ RELEASE READY</span>'
+        return '<span class="badge-ready">✓ RELEASE READY</span>'
     elif s == "ATTENTION":
-        return f'<span class="badge-attention">⚠ ATTENTION REQUIRED</span>'
+        return '<span class="badge-attention">⚠ ATTENTION REQUIRED</span>'
     elif s == "BLOCKED":
-        return f'<span class="badge-blocked">🛑 RELEASE BLOCKED</span>'
+        return '<span class="badge-blocked">🛑 RELEASE BLOCKED</span>'
+    elif s in ("NOT ANALYZED", "PENDING"):
+        return '<span class="badge-pending">⚪ NOT ANALYZED</span>'
     else:
         return f'<span class="badge-pending">⏳ {s}</span>'
 
+
+def render_monitoring_badge(enabled: bool) -> str:
+    if enabled:
+        return '<span style="background-color:#dcfce7; color:#166534; padding:3px 8px; border-radius:4px; font-weight:700; font-size:0.8rem; border:1px solid #bbf7d0;">MONITORED</span>'
+    else:
+        return '<span style="background-color:#f1f5f9; color:#64748b; padding:3px 8px; border-radius:4px; font-weight:600; font-size:0.8rem; border:1px solid #cbd5e1;">PAUSED</span>'
+
+
+# Initialize session state keys
+if "show_connect_dialog" not in st.session_state:
+    st.session_state["show_connect_dialog"] = False
+if "just_connected_repo_id" not in st.session_state:
+    st.session_state["just_connected_repo_id"] = None
+if "nav_target" not in st.session_state:
+    st.session_state["nav_target"] = None
+
+nav_items = [
+    "1. Overview",
+    "2. Repositories",
+    "3. Live Events",
+    "4. Release Runs",
+    "5. Findings",
+    "6. Impact Map",
+    "7. Requirements",
+    "8. Release Simulation",
+    "9. Remediation",
+    "10. Settings",
+]
+
+# Handle programmatic redirection
+default_index = 0
+if st.session_state.get("nav_target") in nav_items:
+    default_index = nav_items.index(st.session_state["nav_target"])
+    st.session_state["nav_target"] = None
 
 # Sidebar Navigation
 st.sidebar.markdown("### 🛡️ **ShipSafe AI**")
@@ -143,23 +189,13 @@ st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
     "Navigation",
-    [
-        "1. Overview",
-        "2. Repositories",
-        "3. Live Events",
-        "4. Release Runs",
-        "5. Findings",
-        "6. Impact Map",
-        "7. Requirements",
-        "8. Release Simulation",
-        "9. Remediation",
-        "10. Settings",
-    ],
-    index=0,
+    nav_items,
+    index=default_index,
+    key="main_nav_radio",
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown(f"**Runtime AI**: Grok-4.7")
+st.sidebar.markdown("**Runtime AI**: Grok-4.7")
 st.sidebar.markdown(f"**Env**: `{os.environ.get('APP_ENV', 'development')}`")
 
 db = get_db_session()
@@ -168,50 +204,64 @@ db = get_db_session()
 # 1. OVERVIEW
 # ==========================================
 if menu == "1. Overview":
-    st.title("Continuous Release Safety Monitor")
-    st.markdown("Real-time automated release risk monitoring across arbitrary repositories.")
-
     repos = db.query(Repository).filter(Repository.is_active == True).all()
-    total_runs = db.query(AnalysisRun).count()
-    blocked_runs = db.query(AnalysisRun).filter(AnalysisRun.release_status == "BLOCKED").count()
-    ready_runs = db.query(AnalysisRun).filter(AnalysisRun.release_status == "READY").count()
-
-    # High-level Metrics Row
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Monitored Repositories", len(repos))
-    m2.metric("Total Analysis Runs", total_runs)
-    m3.metric("Blocked Releases", blocked_runs)
-    m4.metric("Certified Ready", ready_runs)
-
-    st.markdown("---")
-    st.subheader("Monitored Repository Status")
 
     if not repos:
-        st.info("No repositories currently monitored. Navigate to '2. Repositories' to register a repository.")
+        st.markdown("""
+        <div class="empty-state-box">
+            <h1 style="margin-bottom:4px; font-size:2.2rem; color:#0f172a;">SHIPSAFE AI</h1>
+            <h3 style="color:#64748b; margin-top:0; font-weight:400; font-size:1.25rem;">Continuous Release Safety Monitor</h3>
+            <div style="margin: 28px 0 14px 0; font-size: 1.15rem; font-weight: 600; color: #1e293b;">
+                No repositories connected.
+            </div>
+            <p style="color: #64748b; font-size: 0.95rem; margin-bottom: 24px;">
+                Connect a GitHub repository to begin monitoring.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col_c1, col_c2, col_c3 = st.columns([2, 1, 2])
+        with col_c2:
+            if st.button("➕ ADD REPOSITORY", key="overview_add_repo_btn", use_container_width=True):
+                st.session_state["nav_target"] = "2. Repositories"
+                st.session_state["show_connect_dialog"] = True
+                st.rerun()
     else:
+        st.title("Continuous Release Safety Monitor")
+        st.markdown("Real-time automated release risk monitoring across arbitrary repositories.")
+
+        total_runs = db.query(AnalysisRun).count()
+        blocked_runs = db.query(AnalysisRun).filter(AnalysisRun.release_status == "BLOCKED").count()
+        ready_runs = db.query(AnalysisRun).filter(AnalysisRun.release_status == "READY").count()
+
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Monitored Repositories", len(repos))
+        m2.metric("Total Analysis Runs", total_runs)
+        m3.metric("Blocked Releases", blocked_runs)
+        m4.metric("Certified Ready", ready_runs)
+
+        st.markdown("---")
+        st.subheader("Monitored Repositories")
+
         for r in repos:
-            latest_run = db.query(AnalysisRun).filter(
-                AnalysisRun.repository_id == r.id
-            ).order_by(AnalysisRun.id.desc()).first()
+            status_info = RepositoryManager.get_status(db, r)
+            status_html = render_status_badge(status_info["release_status"])
+            mon_badge = render_monitoring_badge(r.monitoring_enabled)
+            open_findings = status_info["findings_count"] if status_info["has_analysis"] else "—"
+            last_event = status_info["last_event"] or "None"
+            last_analyzed = status_info["last_analyzed"]
 
-            status_html = render_status_badge(latest_run.release_status if latest_run else "PENDING")
-            open_findings = len(latest_run.findings) if latest_run else 0
-            last_event = latest_run.event_type if latest_run else "None"
-            last_analyzed = latest_run.completed_at.strftime("%Y-%m-%d %H:%M:%S UTC") if (latest_run and latest_run.completed_at) else "Never"
-
-            is_example = "carehub" in r.name.lower() or (r.local_path and "carehub" in r.local_path.lower())
-            repo_display_name = f"{r.name} *(Example Repository)*" if is_example else r.name
-
-            col_card, col_action = st.columns([4, 1])
+            col_card, col_action = st.columns([4, 1.2])
             with col_card:
                 st.markdown(f"""
                 <div class="repo-card">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h4 style="margin:0; font-size:1.1rem;">📦 {repo_display_name}</h4>
+                        <h4 style="margin:0; font-size:1.15rem;">📦 {r.display_name} &nbsp; {mon_badge}</h4>
                         {status_html}
                     </div>
-                    <div style="color:#64748b; font-size:0.88rem; margin-top:8px;">
-                        Branch: <code>{r.default_branch}</code> &nbsp;|&nbsp;
+                    <div style="color:#64748b; font-size:0.88rem; margin-top:10px;">
+                        Branch: <code>{r.selected_branch or r.default_branch}</code> &nbsp;|&nbsp;
+                        Monitoring: <strong>{'MONITORED' if r.monitoring_enabled else 'PAUSED'}</strong> &nbsp;|&nbsp;
                         Last Event: <strong>{last_event}</strong> &nbsp;|&nbsp;
                         Last Analyzed: <strong>{last_analyzed}</strong> &nbsp;|&nbsp;
                         Findings: <strong>{open_findings}</strong>
@@ -220,82 +270,252 @@ if menu == "1. Overview":
                 """, unsafe_allow_html=True)
             with col_action:
                 st.write("")
-                if st.button(f"Analyze Now", key=f"run_btn_{r.id}"):
-                    # Enqueue manual run and trigger worker
-                    new_run = AnalysisRun(
-                        repository_id=r.id,
-                        event_type="manual",
-                        branch=r.default_branch,
-                        status="PENDING",
-                        release_status="PENDING",
-                        summary={"trigger": "streamlit_ui"}
-                    )
-                    db.add(new_run)
-                    db.commit()
-                    db.refresh(new_run)
-                    worker = AnalysisWorker()
-                    asyncio.run(worker.process_job_by_id(new_run.id))
-                    st.rerun()
+                if st.button("ANALYZE NOW", key=f"ov_run_{r.id}", use_container_width=True):
+                    with st.spinner(f"Analyzing {r.display_name}..."):
+                        new_run = AnalysisRun(
+                            repository_id=r.id,
+                            event_type="manual",
+                            branch=r.selected_branch or r.default_branch,
+                            status="PENDING",
+                            release_status="PENDING",
+                            summary={"trigger": "streamlit_ui"}
+                        )
+                        db.add(new_run)
+                        db.commit()
+                        db.refresh(new_run)
+                        worker = AnalysisWorker()
+                        asyncio.run(worker.process_job_by_id(new_run.id))
+                        st.rerun()
+
+                if r.monitoring_enabled:
+                    if st.button("PAUSE MONITORING", key=f"ov_mon_{r.id}", use_container_width=True):
+                        r.monitoring_enabled = False
+                        db.commit()
+                        st.rerun()
+                else:
+                    if st.button("START MONITORING", key=f"ov_mon_{r.id}", use_container_width=True):
+                        r.monitoring_enabled = True
+                        db.commit()
+                        st.rerun()
 
 # ==========================================
 # 2. REPOSITORIES
 # ==========================================
 elif menu == "2. Repositories":
-    st.title("Repository Management")
-    st.markdown("Register and configure software repositories for event-driven continuous monitoring.")
+    st.title("REPOSITORIES")
 
-    # Registration Form
-    with st.expander("➕ Register New Repository", expanded=False):
-        with st.form("new_repo_form"):
-            repo_name = st.text_input("Repository Name (e.g. billing-service)")
-            repo_url = st.text_input("Repository URL (e.g. https://github.com/myorg/billing-service.git)")
-            local_path = st.text_input("Local File Path (Optional, for local testing)")
-            branch = st.text_input("Monitored Branch", value="main")
-            submitted = st.form_submit_button("Register Repository")
-            if submitted and repo_name and repo_url:
-                new_repo = Repository(
-                    name=repo_name,
-                    repo_url=repo_url,
-                    local_path=local_path or None,
-                    default_branch=branch,
-                    is_active=True
+    col_hdr_left, col_hdr_right = st.columns([3, 1])
+    with col_hdr_right:
+        if st.button("➕ ADD REPOSITORY", key="top_add_repo_btn", use_container_width=True):
+            st.session_state["show_connect_dialog"] = not st.session_state["show_connect_dialog"]
+
+    # Add Repository Dialog / Form
+    if st.session_state.get("show_connect_dialog"):
+        with st.container():
+            st.markdown("""
+            <div style="background:#ffffff; border:2px solid #3b82f6; border-radius:8px; padding:20px; margin-bottom:20px;">
+                <h3 style="margin-top:0; color:#1e293b;">CONNECT REPOSITORY</h3>
+            </div>
+            """, unsafe_allow_html=True)
+
+            with st.form("connect_repository_form"):
+                repo_url_input = st.text_input(
+                    "Repository URL",
+                    placeholder="https://github.com/owner/repository",
+                    help="Paste a public or accessible GitHub repository URL"
                 )
-                db.add(new_repo)
-                db.commit()
-                st.success(f"Registered repository '{repo_name}' successfully!")
-                st.rerun()
+                branch_input = st.text_input(
+                    "Branch",
+                    value="Auto-detect",
+                    help="Branch to checkout and inspect (leave as 'Auto-detect' to determine default)"
+                )
+                display_name_input = st.text_input(
+                    "Repository display name (Optional)",
+                    placeholder="e.g. billing-service"
+                )
+                submit_connect = st.form_submit_button("CONNECT REPOSITORY")
 
-    # List registered repositories
-    repos = db.query(Repository).all()
-    if repos:
-        repo_data = []
-        for r in repos:
-            is_example = "carehub" in r.name.lower() or (r.local_path and "carehub" in r.local_path.lower())
-            repo_data.append({
-                "ID": r.id,
-                "Name": f"{r.name} (Example)" if is_example else r.name,
-                "URL": r.repo_url,
-                "Local Path": r.local_path or "—",
-                "Branch": r.default_branch,
-                "Active": "✓ Active" if r.is_active else "Inactive",
-                "Created At": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "—"
-            })
-        st.dataframe(pd.DataFrame(repo_data), use_container_width=True)
+            if submit_connect:
+                if not repo_url_input or not repo_url_input.strip():
+                    st.error("Repository connection failed. Reason: Repository URL cannot be empty.")
+                else:
+                    is_valid, owner, repo_name, err = RepositoryManager.validate_github_url(repo_url_input)
+                    if not is_valid:
+                        st.error(f"Repository connection failed. Reason: {err}")
+                    else:
+                        with st.status("CONNECTING...", expanded=True) as status_box:
+                            st.write("1. Validating URL")
+                            st.write("2. Fetching repository")
+                            st.write("3. Detecting branch")
+                            st.write("4. Reading latest commit")
+                            try:
+                                target_branch = None if branch_input.strip() == "Auto-detect" else branch_input.strip()
+                                connected_repo = RepositoryManager.connect_repository(
+                                    db=db,
+                                    url=repo_url_input.strip(),
+                                    branch=target_branch,
+                                    display_name=display_name_input.strip() if display_name_input.strip() else None
+                                )
+                                status_box.update(label="CONNECTED", state="complete")
+                                st.session_state["just_connected_repo_id"] = connected_repo.id
+                                st.session_state["show_connect_dialog"] = False
+                                st.rerun()
+                            except Exception as exc:
+                                status_box.update(label="FAILED", state="error")
+                                st.error(f"Repository connection failed. Reason: {exc}")
+
+    # Display post-connection banner if newly connected
+    if st.session_state.get("just_connected_repo_id"):
+        new_repo = db.query(Repository).filter(Repository.id == st.session_state["just_connected_repo_id"]).first()
+        if new_repo:
+            st.success("Repository connected successfully.")
+            st.markdown(f"""
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:16px 20px; margin-bottom:16px;">
+                <h4 style="margin:0 0 8px 0; color:#166534;">Repository: {new_repo.display_name}</h4>
+                <div style="color:#166534; font-size:0.9rem;">
+                    Branch: <code>{new_repo.selected_branch or new_repo.default_branch}</code> &nbsp;|&nbsp;
+                    Latest commit: <code>{new_repo.latest_commit_sha}</code> &nbsp;|&nbsp;
+                    Files: <strong>{new_repo.files_count}</strong>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            b_col1, b_col2, b_col3 = st.columns([1.5, 1.5, 3])
+            with b_col1:
+                if st.button("START MONITORING", key=f"just_mon_{new_repo.id}", use_container_width=True):
+                    new_repo.monitoring_enabled = True
+                    db.commit()
+                    st.session_state["just_connected_repo_id"] = None
+                    st.rerun()
+            with b_col2:
+                if st.button("ANALYZE NOW", key=f"just_run_{new_repo.id}", use_container_width=True):
+                    with st.spinner(f"Analyzing {new_repo.display_name}..."):
+                        run = AnalysisRun(
+                            repository_id=new_repo.id,
+                            event_type="manual",
+                            branch=new_repo.selected_branch or new_repo.default_branch,
+                            status="PENDING",
+                            release_status="PENDING",
+                            summary={"trigger": "post_connect"}
+                        )
+                        db.add(run)
+                        db.commit()
+                        db.refresh(run)
+                        worker = AnalysisWorker()
+                        asyncio.run(worker.process_job_by_id(run.id))
+                        st.session_state["just_connected_repo_id"] = None
+                        st.rerun()
+
+    # List registered repositories or show empty state
+    repos = db.query(Repository).filter(Repository.is_active == True).all()
+
+    if not repos:
+        st.markdown("""
+        <div class="empty-state-box">
+            <h3 style="color:#0f172a; margin-bottom:8px;">NO REPOSITORIES</h3>
+            <p style="color:#64748b; font-size:1rem; margin-bottom:20px;">
+                You have not connected a repository yet.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        col_c1, col_c2, col_c3 = st.columns([2, 1.5, 2])
+        with col_c2:
+            if st.button("CONNECT REPOSITORY", key="empty_connect_btn", use_container_width=True):
+                st.session_state["show_connect_dialog"] = True
+                st.rerun()
     else:
-        st.info("No repositories registered.")
+        for r in repos:
+            status_info = RepositoryManager.get_status(db, r)
+            status_html = render_status_badge(status_info["release_status"])
+            mon_badge = render_monitoring_badge(r.monitoring_enabled)
+            open_findings = status_info["findings_count"] if status_info["has_analysis"] else "—"
+            last_event = status_info["last_event"] or "None"
+            last_analyzed = status_info["last_analyzed"]
+
+            with st.container():
+                st.markdown(f"""
+                <div class="repo-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0; font-size:1.25rem;">📦 {r.display_name} &nbsp; {mon_badge}</h3>
+                        {status_html}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                col_meta, col_branch, col_actions = st.columns([2.5, 1.5, 1.5])
+                with col_meta:
+                    st.markdown(f"**URL:** `{r.repo_url}`")
+                    st.markdown(f"**Latest Commit:** `{r.latest_commit_sha}`")
+                    st.markdown(f"**Files:** `{r.files_count}` &nbsp;|&nbsp; **Findings:** `{open_findings}`")
+                    st.markdown(f"**Last Event:** `{last_event}` &nbsp;|&nbsp; **Last Analyzed:** `{last_analyzed}`")
+
+                with col_branch:
+                    # Dynamic branch selection from detected repository branches
+                    available = r.available_branches if (r.available_branches and isinstance(r.available_branches, list)) else [r.default_branch]
+                    current_branch = r.selected_branch if r.selected_branch in available else r.default_branch
+                    selected_b = st.selectbox(
+                        "Branch",
+                        available,
+                        index=available.index(current_branch) if current_branch in available else 0,
+                        key=f"b_select_{r.id}"
+                    )
+                    if selected_b != r.selected_branch:
+                        r.selected_branch = selected_b
+                        db.commit()
+                        st.rerun()
+
+                with col_actions:
+                    if st.button("ANALYZE NOW", key=f"repo_analyze_{r.id}", use_container_width=True):
+                        with st.spinner(f"Analyzing {r.display_name} on branch {r.selected_branch}..."):
+                            new_run = AnalysisRun(
+                                repository_id=r.id,
+                                event_type="manual",
+                                branch=r.selected_branch or r.default_branch,
+                                status="PENDING",
+                                release_status="PENDING",
+                                summary={"trigger": "repositories_page"}
+                            )
+                            db.add(new_run)
+                            db.commit()
+                            db.refresh(new_run)
+                            worker = AnalysisWorker()
+                            asyncio.run(worker.process_job_by_id(new_run.id))
+                            st.rerun()
+
+                    if r.monitoring_enabled:
+                        if st.button("PAUSE MONITORING", key=f"repo_mon_{r.id}", use_container_width=True):
+                            r.monitoring_enabled = False
+                            db.commit()
+                            st.rerun()
+                    else:
+                        if st.button("START MONITORING", key=f"repo_mon_{r.id}", use_container_width=True):
+                            r.monitoring_enabled = True
+                            db.commit()
+                            st.rerun()
+
+            st.markdown("---")
 
 # ==========================================
 # 3. LIVE EVENTS
 # ==========================================
 elif menu == "3. Live Events":
-    st.title("Live GitHub Webhook Events")
-    st.markdown("Cryptographically verified, deduplicated webhook event stream from GitHub.")
+    repos = db.query(Repository).filter(Repository.is_active == True).all()
+    events = db.query(WebhookEvent).order_by(WebhookEvent.id.desc()).limit(50).all() if repos else []
 
-    events = db.query(WebhookEvent).order_by(WebhookEvent.id.desc()).limit(50).all()
-    if events:
+    if not repos or not events:
+        st.markdown("""
+        <div class="empty-state-box">
+            <h3 style="color:#0f172a; margin-bottom:8px;">NO EVENTS</h3>
+            <p style="color:#64748b; font-size:1rem;">
+                Connect and monitor a repository to see GitHub events here.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.title("Live GitHub Webhook Events")
+        st.markdown("Cryptographically verified, deduplicated webhook event stream from connected GitHub repositories.")
+
         event_rows = []
         for e in events:
-            # find linked run
             linked_run = db.query(AnalysisRun).filter(AnalysisRun.webhook_event_id == e.id).first()
             event_rows.append({
                 "ID": e.id,
@@ -316,32 +536,42 @@ elif menu == "3. Live Events":
         )
         selected_event = next(e for e in events if e.id == event_select)
         st.json(selected_event.payload)
-    else:
-        st.info("No webhook events received yet. Use `scripts/simulate_webhook.py` to send test events.")
 
 # ==========================================
 # 4. RELEASE RUNS
 # ==========================================
 elif menu == "4. Release Runs":
-    st.title("Release Analysis Runs")
     runs = db.query(AnalysisRun).order_by(AnalysisRun.id.desc()).all()
 
     if not runs:
-        st.info("No analysis runs recorded.")
+        st.markdown("""
+        <div class="empty-state-box">
+            <h3 style="color:#0f172a; margin-bottom:8px;">NO ANALYSIS RUNS</h3>
+            <p style="color:#64748b; font-size:1rem;">
+                Run your first repository analysis to see results here.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        run_options = {r.id: f"Run #{r.id} - {r.repository.name if r.repository else 'Repo'} [{r.event_type}] ({r.release_status})" for r in runs}
-        selected_run_id = st.selectbox("Select Release Run", list(run_options.keys()), format_func=lambda x: run_options[x])
+        st.title("Release Analysis Runs")
+        run_options = {
+            r.id: f"Run #{r.id} - {r.repository.display_name if r.repository else 'Repo'} [{r.event_type}] ({r.release_status})"
+            for r in runs
+        }
+        selected_run_id = st.selectbox(
+            "Select Release Run",
+            list(run_options.keys()),
+            format_func=lambda x: run_options[x]
+        )
         selected_run = db.query(AnalysisRun).filter(AnalysisRun.id == selected_run_id).first()
 
-        # Run Header Summary
         c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(f"**Repository:** {selected_run.repository.name if selected_run.repository else '—'}")
+        c1.markdown(f"**Repository:** {selected_run.repository.display_name if selected_run.repository else '—'}")
         c2.markdown(f"**Branch / Event:** `{selected_run.branch}` ({selected_run.event_type})")
         c3.markdown(f"**Duration:** {selected_run.duration_seconds}s")
         c4.markdown(f"**Gate Status:** {render_status_badge(selected_run.release_status)}", unsafe_allow_html=True)
 
         st.markdown("---")
-        # Sub-metrics
         summary = selected_run.summary or {}
         test_summary = summary.get("test_summary", {})
         sev_counts = summary.get("severity_counts", {})
@@ -352,7 +582,6 @@ elif menu == "4. Release Runs":
         s3.metric("High Concerns", sev_counts.get("HIGH", 0))
         s4.metric("Verified Findings", summary.get("verified_findings_count", len(selected_run.findings)))
 
-        # Agent Runs Breakdown
         st.subheader("Specialist Grok Agent Executions")
         agent_runs = db.query(AgentRun).filter(AgentRun.analysis_run_id == selected_run.id).all()
         if agent_runs:
@@ -371,15 +600,27 @@ elif menu == "4. Release Runs":
 # 5. FINDINGS
 # ==========================================
 elif menu == "5. Findings":
-    st.title("Verified Release Findings")
-    st.markdown("Grounded findings backed by concrete repository evidence (file presence, line bounds, and diff traces).")
+    runs = db.query(AnalysisRun).filter(AnalysisRun.status == "COMPLETED").order_by(AnalysisRun.id.desc()).all()
 
-    runs = db.query(AnalysisRun).order_by(AnalysisRun.id.desc()).all()
     if not runs:
-        st.info("No runs available.")
+        st.markdown("""
+        <div class="empty-state-box">
+            <h3 style="color:#0f172a; margin-bottom:8px;">NO FINDINGS</h3>
+            <p style="color:#64748b; font-size:1rem;">
+                No repository analysis has been completed.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        run_id = st.selectbox("Filter by Run ID", [r.id for r in runs], format_func=lambda x: f"Run #{x} ({next(r.release_status for r in runs if r.id == x)})")
-        
+        st.title("Verified Release Findings")
+        st.markdown("Grounded findings backed by concrete repository evidence (file presence, line bounds, and diff traces).")
+
+        run_id = st.selectbox(
+            "Filter by Run ID",
+            [r.id for r in runs],
+            format_func=lambda x: f"Run #{x} ({next(r.release_status for r in runs if r.id == x)})"
+        )
+
         severity_filter = st.multiselect(
             "Filter Severity",
             ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"],
@@ -393,13 +634,6 @@ elif menu == "5. Findings":
 
         if findings:
             for f in findings:
-                sev_color = {
-                    "CRITICAL": "sev-critical",
-                    "HIGH": "sev-high",
-                    "MEDIUM": "sev-medium",
-                    "LOW": "sev-low",
-                }.get(f.severity, "sev-info")
-
                 verified_badge = "✅ Grounded in Repo" if f.verified else "⚠️ Unverified Line"
                 with st.expander(f"[{f.severity}] {f.finding_id}: {f.title} — {f.file}:{f.line_start or 1}"):
                     st.markdown(f"**Agent:** `{f.agent_name}` &nbsp;|&nbsp; **Verification:** *{verified_badge}* ({f.verification_notes})")
@@ -415,11 +649,21 @@ elif menu == "5. Findings":
 # 6. IMPACT MAP
 # ==========================================
 elif menu == "6. Impact Map":
-    st.title("Blast Radius & Impact Map")
-    st.markdown("Visual mapping connecting commits → changed files → components → APIs → tests.")
+    runs = db.query(AnalysisRun).filter(AnalysisRun.status == "COMPLETED").order_by(AnalysisRun.id.desc()).all()
 
-    runs = db.query(AnalysisRun).order_by(AnalysisRun.id.desc()).all()
-    if runs:
+    if not runs:
+        st.markdown("""
+        <div class="empty-state-box">
+            <h3 style="color:#0f172a; margin-bottom:8px;">NO ANALYSIS AVAILABLE</h3>
+            <p style="color:#64748b; font-size:1rem;">
+                Run an analysis to inspect blast radius and affected system topology.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.title("Blast Radius & Impact Map")
+        st.markdown("Visual mapping connecting commits → changed files → components → APIs → tests.")
+
         run_id = st.selectbox("Select Run for Impact Mapping", [r.id for r in runs])
         run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
         summary = run.summary or {}
@@ -428,8 +672,7 @@ elif menu == "6. Impact Map":
 
         if nodes:
             st.subheader(f"Affected Components for Run #{run.id}")
-            df_nodes = pd.DataFrame(nodes)
-            st.dataframe(df_nodes, use_container_width=True)
+            st.dataframe(pd.DataFrame(nodes), use_container_width=True)
 
             st.markdown("### Blast Radius Topology Flow")
             st.markdown(f"""
@@ -451,11 +694,21 @@ graph TD
 # 7. REQUIREMENTS
 # ==========================================
 elif menu == "7. Requirements":
-    st.title("Requirement Traceability Matrix")
-    st.markdown("Traceability connecting requirements (R001–R005) directly to implementation evidence and test status.")
+    runs = db.query(AnalysisRun).filter(AnalysisRun.status == "COMPLETED").order_by(AnalysisRun.id.desc()).all()
 
-    runs = db.query(AnalysisRun).order_by(AnalysisRun.id.desc()).all()
-    if runs:
+    if not runs:
+        st.markdown("""
+        <div class="empty-state-box">
+            <h3 style="color:#0f172a; margin-bottom:8px;">NO ANALYSIS AVAILABLE</h3>
+            <p style="color:#64748b; font-size:1rem;">
+                Run an analysis to inspect requirement compliance and evidence traces.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.title("Requirement Traceability Matrix")
+        st.markdown("Traceability connecting requirements directly to implementation evidence and test status.")
+
         run_id = st.selectbox("Select Analysis Run", [r.id for r in runs])
         req_checks = db.query(RequirementCheck).filter(RequirementCheck.analysis_run_id == run_id).all()
         if req_checks:
@@ -477,11 +730,21 @@ elif menu == "7. Requirements":
 # 8. RELEASE SIMULATION
 # ==========================================
 elif menu == "8. Release Simulation":
-    st.title("Release Impact Simulation")
-    st.markdown("Deterministic blast radius modeling and regression failure simulation.")
+    runs = db.query(AnalysisRun).filter(AnalysisRun.status == "COMPLETED").order_by(AnalysisRun.id.desc()).all()
 
-    runs = db.query(AnalysisRun).order_by(AnalysisRun.id.desc()).all()
-    if runs:
+    if not runs:
+        st.markdown("""
+        <div class="empty-state-box">
+            <h3 style="color:#0f172a; margin-bottom:8px;">NO ANALYSIS AVAILABLE</h3>
+            <p style="color:#64748b; font-size:1rem;">
+                Run an analysis to model release regressions and pre-deployment risks.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.title("Release Impact Simulation")
+        st.markdown("Deterministic blast radius modeling and regression failure simulation.")
+
         run_id = st.selectbox("Select Run to Simulate", [r.id for r in runs])
         run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
         sim = (run.summary or {}).get("simulation", {})
@@ -508,18 +771,27 @@ elif menu == "8. Release Simulation":
 # 9. REMEDIATION
 # ==========================================
 elif menu == "9. Remediation":
-    st.title("Verified Remediation & Recheck")
-    st.markdown("Generate safe, verified patches for confirmed blockers and recheck release readiness.")
+    runs = db.query(AnalysisRun).filter(AnalysisRun.status == "COMPLETED").order_by(AnalysisRun.id.desc()).all()
 
-    runs = db.query(AnalysisRun).order_by(AnalysisRun.id.desc()).all()
-    if runs:
+    if not runs:
+        st.markdown("""
+        <div class="empty-state-box">
+            <h3 style="color:#0f172a; margin-bottom:8px;">NO ANALYSIS AVAILABLE</h3>
+            <p style="color:#64748b; font-size:1rem;">
+                Run an analysis to generate verified remediations and patch proposals.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.title("Verified Remediation & Recheck")
+        st.markdown("Generate safe, verified patches for confirmed blockers and recheck release readiness.")
+
         run_id = st.selectbox("Select Run to Remediate", [r.id for r in runs])
         actions = db.query(RemediationAction).filter(RemediationAction.analysis_run_id == run_id).all()
 
         col_act1, col_act2 = st.columns([3, 1])
         with col_act2:
             if st.button("Generate Fix Proposals"):
-                # Propose remediations for verified findings
                 findings = db.query(Finding).filter(
                     Finding.analysis_run_id == run_id,
                     Finding.verified == True
@@ -557,8 +829,7 @@ elif menu == "9. Remediation":
                             a.status = "APPLIED"
                             a.applied_at = datetime.datetime.utcnow()
                             db.commit()
-                            st.success(f"Patch applied! Rechecking release candidate...")
-                            # Trigger recheck run
+                            st.success("Patch applied! Rechecking release candidate...")
                             recheck_run = AnalysisRun(
                                 repository_id=runs[0].repository_id,
                                 event_type="recheck",
@@ -585,10 +856,13 @@ elif menu == "10. Settings":
     st.title("System Settings & Configuration")
     
     st.subheader("AI Provider Settings")
-    st.markdown(f"**Provider:** `{os.environ.get('AI_PROVIDER', 'grok')}`")
-    st.markdown(f"**Model:** `{os.environ.get('XAI_MODEL', 'grok-4.7')}`")
-    has_api_key = bool(os.environ.get("XAI_API_KEY"))
-    st.markdown(f"**xAI API Key Configured:** `{'Yes (Masked)' if has_api_key else 'No (Using deterministic fallback)'}`")
+    active_prov = os.environ.get("AI_PROVIDER", "groq" if os.environ.get("GROQ_API_KEY") else "grok")
+    st.markdown(f"**Provider:** `{active_prov}`")
+    has_xai = bool(os.environ.get("XAI_API_KEY"))
+    has_groq = bool(os.environ.get("GROQ_API_KEY"))
+    st.markdown(f"**xAI API Key (Grok):** `{'Configured (Masked)' if has_xai else 'Not set'}`")
+    st.markdown(f"**Groq API Key (LPU):** `{'Configured (Masked)' if has_groq else 'Not set'}`")
+    st.markdown(f"**Execution Mode:** `{'Deterministic Evidence Engine' if not (has_xai or has_groq) else 'Live LLM Reasoning'}`")
 
     st.subheader("Database Connection")
     db_url = os.environ.get("DATABASE_URL", "sqlite:///./shipsafe.db")

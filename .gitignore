@@ -62,6 +62,8 @@ db.sqlite3
 db.sqlite3-journal
 # SQLite databases (all patterns)
 *.db
+.repos/
+test_target/
 
 
 # Flask stuff:

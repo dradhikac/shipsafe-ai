@@ -17,13 +17,35 @@ class RepositoryCreate(BaseModel):
     default_branch: str = "main"
 
 
+class RepositoryConnect(BaseModel):
+    url: str
+    branch: Optional[str] = None
+    display_name: Optional[str] = None
+    token: Optional[str] = None
+
+
+class MonitoringUpdate(BaseModel):
+    enabled: bool
+
+
+class BranchSelect(BaseModel):
+    branch: str
+
+
 class RepositoryResponse(BaseModel):
     id: int
+    provider: Optional[str] = "github"
+    owner: Optional[str] = None
     name: str
     repo_url: str
-    local_path: Optional[str]
-    default_branch: str
-    is_active: bool
+    local_path: Optional[str] = None
+    default_branch: str = "main"
+    selected_branch: Optional[str] = "main"
+    available_branches: Optional[List[str]] = []
+    monitoring_enabled: Optional[bool] = False
+    latest_commit_sha: Optional[str] = None
+    files_count: Optional[int] = 0
+    is_active: bool = True
 
     model_config = {"from_attributes": True}
 
@@ -32,6 +54,51 @@ class RepositoryResponse(BaseModel):
 def list_repositories(db: Session = Depends(get_db)):
     """List all registered repositories."""
     return db.query(Repository).order_by(Repository.id.asc()).all()
+
+
+@router.post("/connect", response_model=RepositoryResponse, status_code=status.HTTP_201_CREATED)
+def connect_repository(payload: RepositoryConnect, db: Session = Depends(get_db)):
+    """Connect a real GitHub repository: validate, clone/fetch, inspect branches, and persist."""
+    from shipsafe.core.repo_manager import RepositoryManager
+    try:
+        repo = RepositoryManager.connect_repository(
+            db=db,
+            url=payload.url,
+            branch=payload.branch,
+            display_name=payload.display_name,
+            token=payload.token
+        )
+        return repo
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+    except PermissionError as pe:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(pe))
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Repository connection failed: {exc}")
+
+
+@router.post("/{repo_id}/monitoring")
+def toggle_monitoring(repo_id: int, payload: MonitoringUpdate, db: Session = Depends(get_db)):
+    """Enable or disable live continuous monitoring for a repository."""
+    repo = db.query(Repository).filter(Repository.id == repo_id).first()
+    if not repo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found.")
+    repo.monitoring_enabled = payload.enabled
+    db.commit()
+    return {"id": repo.id, "monitoring_enabled": repo.monitoring_enabled}
+
+
+@router.post("/{repo_id}/select-branch")
+def select_branch(repo_id: int, payload: BranchSelect, db: Session = Depends(get_db)):
+    """Select active branch for analysis."""
+    repo = db.query(Repository).filter(Repository.id == repo_id).first()
+    if not repo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found.")
+    if repo.available_branches and payload.branch not in repo.available_branches:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Branch '{payload.branch}' not in available branches.")
+    repo.selected_branch = payload.branch
+    db.commit()
+    return {"id": repo.id, "selected_branch": repo.selected_branch}
 
 
 @router.post("", response_model=RepositoryResponse, status_code=status.HTTP_201_CREATED)

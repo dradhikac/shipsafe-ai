@@ -21,12 +21,16 @@ class AIProvider(ABC):
 
 def get_ai_provider() -> AIProvider:
     """Factory returning configured AI provider based on environment variables."""
-    provider_type = os.environ.get("AI_PROVIDER", "grok").lower()
+    provider_type = os.environ.get("AI_PROVIDER", "").lower()
 
     if provider_type == "mock":
         from .mock_provider import MockProvider
         return MockProvider()
 
-    # Default to Grok
+    if provider_type == "groq" or (not provider_type and os.environ.get("GROQ_API_KEY")) or provider_type == "":
+        from .groq_client import GroqProvider
+        return GroqProvider()
+
+    # Default to Grok (xAI)
     from .grok_client import GrokProvider
     return GrokProvider()
