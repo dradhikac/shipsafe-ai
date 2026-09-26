@@ -110,6 +110,7 @@ class AnalysisWorker:
 
             # Ensure git checkout to targeted branch
             from shipsafe.core.git import GitController
+            from shipsafe.core.context import AnalysisContext
             git_ctrl = GitController(target_dir)
             if git_ctrl.is_git_repo():
                 target_b = run.branch or repo_record.selected_branch or repo_record.default_branch
@@ -119,7 +120,28 @@ class AnalysisWorker:
                 repo_record.latest_commit_sha = run.head_sha
                 repo_record.selected_branch = target_b
 
+                # If base_sha missing, check if parent commit exists
+                if not run.base_sha:
+                    code_p, parent_sha, _ = git_ctrl._run(["rev-parse", "--verify", f"{run.head_sha}~1"])
+                    if code_p == 0 and parent_sha:
+                        run.base_sha = parent_sha
+
             core_repo = Repository(root_dir=target_dir, name=repo_record.name)
+            profile = core_repo.discovery.get_profile()
+
+            # Initialize AnalysisContext for provenance and cache isolation
+            context = AnalysisContext(
+                repository_id=repo_record.id,
+                repository_url=repo_record.repo_url or "",
+                repository_name=repo_record.name,
+                branch=run.branch or "main",
+                commit_sha=run.head_sha or "HEAD",
+                base_sha=run.base_sha,
+                profile=profile,
+            )
+            run.context_hash = context.compute_context_hash()
+            run.engine_version = context.analysis_engine_version
+            run.prompt_version = context.prompt_version
 
             # 1. Deterministic Evidence Engine Collection
             print(f"[ShipSafe Worker] Assembling deterministic evidence pack from '{target_dir}'...")
@@ -129,6 +151,9 @@ class AnalysisWorker:
                 head_commit=run.head_sha,
                 run_tests=True
             )
+            context.changed_files = evidence.changed_files
+            context.git_diff = evidence.raw_diff
+            context.repository_structure = evidence.discovery
 
             # 2. Parallel Specialist Agent Execution
             active_provider = get_ai_provider()
@@ -155,14 +180,16 @@ class AnalysisWorker:
             agent_results = await asyncio.gather(*agent_tasks)
 
             agent_reports: Dict[str, AgentReport] = {}
+            agent_statuses: Dict[str, str] = {}
             for name, report, duration, status, err in agent_results:
                 agent_reports[name] = report
+                agent_statuses[name] = status
                 # Record AgentRun
                 agent_run_record = AgentRun(
                     analysis_run_id=run.id,
                     agent_name=name,
                     status=status,
-                    raw_output=report.model_dump(),
+                    raw_output=report.model_dump() if status == "COMPLETED" else {"error": err, "findings": []},
                     duration_seconds=round(duration, 3)
                 )
                 db.add(agent_run_record)
@@ -171,7 +198,13 @@ class AnalysisWorker:
 
             # 3. Release Synthesizer & Gate Enforcement
             print("[ShipSafe Worker] Synthesizing findings and evaluating release gate...")
-            synthesis = ReleaseSynthesizer.synthesize(core_repo, evidence, agent_reports)
+            synthesis = ReleaseSynthesizer.synthesize(
+                repo=core_repo,
+                evidence=evidence,
+                agent_reports=agent_reports,
+                agent_statuses=agent_statuses,
+                context=context
+            )
 
             # 4. Persist Findings
             for f in synthesis["findings"]:
@@ -186,10 +219,12 @@ class AnalysisWorker:
                     line_start=f.get("line_start"),
                     line_end=f.get("line_end"),
                     evidence=f.get("evidence"),
+                    evidence_type=f.get("evidence_type", "source_code"),
                     affected_components=f.get("affected_components", []),
                     recommendation=f.get("recommendation"),
                     confidence=f.get("confidence", 1.0),
                     verified=f["verified"],
+                    validation_status=f.get("validation_status", "VALIDATED" if f["verified"] else "REJECTED"),
                     verification_notes=f["verification_notes"]
                 )
                 db.add(db_finding)
@@ -212,10 +247,16 @@ class AnalysisWorker:
             run.release_status = synthesis["release_status"]
             run.completed_at = datetime.datetime.utcnow()
             run.duration_seconds = round(total_duration, 2)
-            run.summary = synthesis["summary"]
+            summary_payload = synthesis["summary"]
+            summary_payload["profile"] = profile.to_dict()
+            summary_payload["agent_statuses"] = agent_statuses
+            summary_payload["context_hash"] = run.context_hash
+            summary_payload["model"] = getattr(active_provider, "model", type(active_provider).__name__)
+            run.summary = summary_payload
             repo_record.last_analysis_id = run.id
             repo_record.last_event_at = run.completed_at
             repo_record.updated_at = datetime.datetime.utcnow()
+
 
             db.commit()
             print(f"[ShipSafe Worker] Completed run #{run.id} in {run.duration_seconds}s. Gate: {run.release_status}")

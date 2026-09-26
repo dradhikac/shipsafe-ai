@@ -66,6 +66,11 @@ class Repository:
             return False
         return line <= len(content.splitlines())
 
+    def list_files(self) -> List[str]:
+        """List all non-blocked relative file paths in repository."""
+        return self.discovery._list_safe_files()
+
+
     def get_metadata(self) -> Dict[str, Any]:
         """Get repository metadata and git commit information."""
         meta = {

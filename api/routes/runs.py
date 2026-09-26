@@ -93,14 +93,17 @@ def get_run_findings(run_id: int, severity: Optional[str] = None, db: Session = 
             "line_start": f.line_start,
             "line_end": f.line_end,
             "evidence": f.evidence,
+            "evidence_type": getattr(f, "evidence_type", "source_code"),
             "affected_components": f.affected_components or [],
             "recommendation": f.recommendation,
             "confidence": f.confidence,
             "verified": f.verified,
+            "validation_status": getattr(f, "validation_status", "VALIDATED" if f.verified else "REJECTED"),
             "verification_notes": f.verification_notes,
         }
         for f in findings
     ]
+
 
 
 @router.get("/{run_id}/requirements")

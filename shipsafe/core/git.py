@@ -12,23 +12,40 @@ class GitController:
     def __init__(self, repo_dir: str):
         self.repo_dir = os.path.abspath(repo_dir)
 
-    def _run(self, args: List[str]) -> Tuple[int, str, str]:
+    def _run(self, args: List[str], timeout: int = 30) -> Tuple[int, str, str]:
         """Run a git command in the repository directory."""
         cmd = ["git"] + args
-        proc = subprocess.run(
-            cmd,
-            cwd=self.repo_dir,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace"
-        )
-        return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+        git_env = os.environ.copy()
+        git_env["GIT_TERMINAL_PROMPT"] = "0"
+        git_env["GIT_ASKPASS"] = "echo"
+        git_env["GCM_INTERACTIVE"] = "never"
+        try:
+            proc = subprocess.run(
+                cmd,
+                cwd=self.repo_dir,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=git_env,
+                timeout=timeout
+            )
+            return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+        except subprocess.TimeoutExpired:
+            return 124, "", f"Git command timed out after {timeout}s: {' '.join(cmd)}"
+        except Exception as e:
+            return 1, "", str(e)
 
     def is_git_repo(self) -> bool:
-        """Check if target path is a git repository."""
-        code, out, _ = self._run(["rev-parse", "--is-inside-work-tree"])
-        return code == 0 and out == "true"
+        """Check if target path itself is a git repository."""
+        git_dir = os.path.join(self.repo_dir, ".git")
+        if os.path.exists(git_dir):
+            return True
+        code, out, _ = self._run(["rev-parse", "--show-toplevel"])
+        if code == 0 and os.path.abspath(out.strip()).lower() == self.repo_dir.lower():
+            return True
+        return False
+
 
     def get_head_sha(self) -> str:
         """Get the full SHA of HEAD."""
@@ -45,15 +62,23 @@ class GitController:
         return "detached"
 
     def get_diff(self, base: Optional[str] = None, head: Optional[str] = None) -> str:
-        """Get git diff between base and head, or unstaged/staged diff if None."""
+        """Get git diff between base and head, or commit diff if only head is given."""
         args = ["diff"]
         if base and head:
             args.extend([f"{base}..{head}"])
         elif base:
             args.extend([base])
+        elif head:
+            # Check if parent commit exists
+            code, _, _ = self._run(["rev-parse", "--verify", f"{head}~1"])
+            if code == 0:
+                args.extend([f"{head}~1..{head}"])
+            else:
+                code_tree, empty_tree, _ = self._run(["hash-object", "-t", "tree", "/dev/null"])
+                if code_tree == 0 and empty_tree:
+                    args.extend([empty_tree, head])
         code, out, err = self._run(args)
         if code != 0:
-            # Fallback to single commit diff or empty
             return ""
         return out
 
@@ -64,10 +89,23 @@ class GitController:
             args.extend([f"{base}..{head}"])
         elif base:
             args.extend([base])
+        elif head:
+            code, _, _ = self._run(["rev-parse", "--verify", f"{head}~1"])
+            if code == 0:
+                args.extend([f"{head}~1..{head}"])
+            else:
+                code_tree, empty_tree, _ = self._run(["hash-object", "-t", "tree", "/dev/null"])
+                if code_tree == 0 and empty_tree:
+                    args.extend([empty_tree, head])
+                else:
+                    code_ls, out_ls, _ = self._run(["ls-tree", "-r", "--name-only", head])
+                    if code_ls == 0 and out_ls:
+                        return [f.strip() for f in out_ls.splitlines() if f.strip()]
         code, out, _ = self._run(args)
         if code != 0 or not out:
             return []
         return [f.strip() for f in out.splitlines() if f.strip()]
+
 
     def checkout(self, commit_or_branch: str) -> bool:
         """Check out a specific commit or branch."""

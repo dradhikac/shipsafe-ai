@@ -63,16 +63,26 @@ class EvidenceEngine:
         parsed_diffs: List[FileDiff] = []
 
         if git.is_git_repo():
+            head_commit = head_commit or meta.get("head_sha")
             raw_diff = git.get_diff(base=base_commit, head=head_commit)
             changed_files = git.get_changed_files(base=base_commit, head=head_commit)
             parsed_diffs = DiffParser.parse(raw_diff)
         else:
-            # Non-git or standalone folder: all safe files considered changed
             discovery_info = repo.discovery.scan()
-            changed_files = discovery_info["test_files"][:10]
+            changed_files = [f for f in discovery_info["test_files"][:10] if not f.lower().endswith("readme.md")]
+            for ap in discovery_info.get("api_definitions", []):
+                if ap.get("file"):
+                    changed_files.append(ap.get("file"))
+            for m in discovery_info.get("database", {}).get("models", []):
+                changed_files.append(m)
+            for sf in repo.list_files():
+                if sf not in changed_files and not sf.lower().endswith(("readme.md", ".txt", ".md", ".png", ".jpg", ".svg", ".lock")):
+                    changed_files.append(sf)
+            changed_files = [f for f in changed_files if f][:20]
 
         # Scan project structure
         discovery = repo.discovery.scan()
+
 
         # Parse requirements
         requirements = []
@@ -126,56 +136,13 @@ class EvidenceEngine:
         )
 
     @classmethod
-    def validate_finding(cls, repo: Repository, finding: Dict[str, Any]) -> Tuple[bool, str]:
+    def validate_finding(cls, repo: Repository, finding: Dict[str, Any], context: Optional[Any] = None) -> Tuple[bool, str]:
         """
         Validate that an agent finding is grounded in actual repository evidence.
-        Rejects findings with missing files, out-of-range line numbers, or invented files.
+        Delegates to EvidenceValidator.
         """
-        file_path = finding.get("file")
-        if not file_path:
-            return False, "Finding specifies no target file."
+        from .evidence_validator import EvidenceValidator
+        status, reason = EvidenceValidator.validate(repo, finding, context=context)
+        is_valid = (status == EvidenceValidator.STATUS_VALIDATED)
+        return is_valid, reason
 
-        # Normalize relative path
-        rel_path = file_path.replace("\\", "/").strip("/")
-
-        # Check if file exists in repository
-        if not repo.file_exists(rel_path):
-            return False, f"File '{rel_path}' does not exist in the repository."
-
-        # Check if file is blocked (e.g. .env or credentials)
-        if SecretFilter.is_blocked_path(rel_path):
-            return False, f"File '{rel_path}' is an excluded/sensitive path."
-
-        # Validate line numbers if provided
-        line_start = finding.get("line_start")
-        line_end = finding.get("line_end")
-
-        if line_start is not None:
-            if not isinstance(line_start, int) or line_start < 1:
-                return False, f"Invalid line_start: {line_start}"
-            if not repo.verify_line(rel_path, line_start):
-                return False, f"Line {line_start} is beyond end of file '{rel_path}'."
-
-        if line_end is not None:
-            if not isinstance(line_end, int) or line_end < 1:
-                return False, f"Invalid line_end: {line_end}"
-            if not repo.verify_line(rel_path, line_end):
-                return False, f"Line {line_end} is beyond end of file '{rel_path}'."
-            if line_start is not None and line_end < line_start:
-                return False, f"line_end ({line_end}) is less than line_start ({line_start})."
-
-        # Validate evidence text if provided
-        evidence_snippet = finding.get("evidence")
-        if evidence_snippet and len(evidence_snippet.strip()) > 10:
-            content = repo.read_file(rel_path)
-            # Check partial presence in file
-            clean_snippet = evidence_snippet.strip()
-            # If line specified, check snippet against line vicinity
-            if line_start and content:
-                vicinity = repo.read_snippet(rel_path, max(1, line_start - 5), (line_end or line_start) + 5)
-                # It's considered verified if either snippet is found or lines exist
-                return True, "Verified with line vicinity."
-            elif content and any(sub in content for sub in clean_snippet.splitlines()[:3] if len(sub.strip()) > 6):
-                return True, "Verified in file content."
-
-        return True, "Verified (file and line bounds confirmed)."

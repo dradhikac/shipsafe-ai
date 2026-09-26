@@ -35,10 +35,11 @@ class GroqProvider(AIProvider):
             "Content-Type": "application/json",
         }
 
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
+        sys_content = (system_prompt or "You are a specialist analysis agent.") + "\nYou MUST return your answer as a valid JSON object."
+        messages = [
+            {"role": "system", "content": sys_content},
+            {"role": "user", "content": prompt}
+        ]
 
         payload = {
             "model": self.model,
@@ -47,8 +48,12 @@ class GroqProvider(AIProvider):
             "response_format": {"type": "json_object"},
         }
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(self.api_url, headers=headers, json=payload)
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(self.api_url, headers=headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                return data["choices"][0]["message"]["content"]
+        except Exception as e:
+            raise RuntimeError(f"Groq API call failed: {e}")
+

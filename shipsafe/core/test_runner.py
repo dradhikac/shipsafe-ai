@@ -66,8 +66,18 @@ class TestRunner:
     def __init__(self, repo_dir: str):
         self.repo_dir = os.path.abspath(repo_dir)
 
-    def run(self, framework: Optional[str] = None, timeout_seconds: int = 60) -> TestRunResult:
+    def run(self, framework: Optional[str] = None, timeout_seconds: int = 30) -> TestRunResult:
         """Run tests using the specified or auto-detected framework."""
+        if os.environ.get("SHIPSAFE_INNER_TEST_RUN") == "1":
+            return TestRunResult(
+                framework="pytest",
+                total_tests=0,
+                passed=0,
+                failed=0,
+                raw_output="Skipped nested test runner execution to avoid recursion.",
+                exit_code=0
+            )
+
         if not framework:
             framework = self._detect_framework()
 
@@ -106,6 +116,7 @@ class TestRunner:
             cmd.extend(["--cov=.", "--cov-report=term-missing"])
 
         env = os.environ.copy()
+        env["SHIPSAFE_INNER_TEST_RUN"] = "1"
         env["PYTHONPATH"] = f"{self.repo_dir}{os.pathsep}{env.get('PYTHONPATH', '')}"
 
         try:

@@ -11,6 +11,15 @@ def test_remediation_propose_and_compare():
 
     # 1. Setup repository and initial run with findings
     repo = db.query(Repository).first()
+    if not repo:
+        repo = Repository(
+            name="test-remediation-repo",
+            repo_url="https://github.com/example/remediation-test.git",
+            default_branch="main"
+        )
+        db.add(repo)
+        db.commit()
+        db.refresh(repo)
     assert repo is not None
 
     before_run = AnalysisRun(

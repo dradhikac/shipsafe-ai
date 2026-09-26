@@ -79,6 +79,9 @@ class AnalysisRun(Base):
 
     # Serialized summary: tests, blast radius, simulation, etc.
     summary = Column(JSON, default=dict)
+    engine_version = Column(String(50), default="2.1.0")
+    prompt_version = Column(String(50), default="2.1.0")
+    context_hash = Column(String(100), nullable=True)
 
     repository = relationship("Repository", back_populates="runs")
     webhook_event = relationship("WebhookEvent", back_populates="analysis_runs")
@@ -115,15 +118,18 @@ class Finding(Base):
     line_start = Column(Integer, nullable=True)
     line_end = Column(Integer, nullable=True)
     evidence = Column(Text, nullable=True)
+    evidence_type = Column(String(50), default="source_code")
     affected_components = Column(JSON, default=list)
     recommendation = Column(Text, nullable=True)
     confidence = Column(Float, default=1.0)
     
     # Deterministic verification
     verified = Column(Boolean, default=False)
+    validation_status = Column(String(50), default="UNVERIFIABLE")
     verification_notes = Column(String(255), nullable=True)
 
     analysis_run = relationship("AnalysisRun", back_populates="findings")
+
 
 
 class RequirementCheck(Base):

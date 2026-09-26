@@ -150,16 +150,26 @@ class RepositoryManager:
             clone_url = url.replace("https://", f"https://x-access-token:{token}@")
 
         cmd = ["git", "clone", clone_url, target_dir]
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace"
-        )
+        git_env = os.environ.copy()
+        git_env["GIT_TERMINAL_PROMPT"] = "0"
+        git_env["GIT_ASKPASS"] = "echo"
+        git_env["GCM_INTERACTIVE"] = "never"
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=git_env,
+                timeout=20
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"Cloning repository timed out: {url}")
+
         if proc.returncode != 0:
             err_msg = proc.stderr.strip() or proc.stdout.strip()
-            if "Authentication failed" in err_msg or "could not read Username" in err_msg:
+            if "Authentication failed" in err_msg or "could not read Username" in err_msg or "terminal prompts disabled" in err_msg:
                 raise PermissionError("Authentication failed for repository. Private repositories require GITHUB_TOKEN.")
             raise RuntimeError(f"Failed to clone repository from {url}: {err_msg}")
 

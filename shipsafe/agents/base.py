@@ -20,7 +20,10 @@ class BaseSpecialistAgent:
 
     def build_prompt(self, evidence: EvidencePack) -> str:
         """Subclasses customize the evidence slice sent to the agent."""
-        return json.dumps(evidence.to_dict(), indent=2)
+        d = evidence.to_dict()
+        d["agent_name"] = self.name
+        return json.dumps(d, indent=2)
+
 
     async def run(self, evidence: EvidencePack) -> AgentReport:
         """Execute agent analysis and enforce structured schema output."""
@@ -46,12 +49,14 @@ class BaseSpecialistAgent:
             if isinstance(data, dict):
                 if "agent" not in data:
                     data["agent"] = self.name
+                # Ensure each finding has agent set
+                if "findings" in data and isinstance(data["findings"], list):
+                    for f in data["findings"]:
+                        if isinstance(f, dict) and not f.get("agent"):
+                            f["agent"] = self.name
                 return AgentReport(**data)
-        except (json.JSONDecodeError, ValidationError):
-            pass
+            else:
+                raise ValueError(f"Agent {self.name} expected JSON object, got {type(data).__name__}")
+        except (json.JSONDecodeError, ValidationError) as e:
+            raise ValueError(f"Agent {self.name} received malformed model output: {e} | Raw: {cleaned[:200]}")
 
-        # Fallback empty report on parsing error
-        return AgentReport(
-            agent=self.name,
-            findings=[]
-        )
